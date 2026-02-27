@@ -13,9 +13,9 @@ const badges = [
 ];
 
 const challenges = [
-  { title: "7 дней без сахара", reward: "+50 XP", progress: 3, total: 7 },
-  { title: "10 000 шагов/день", reward: "+30 XP", progress: 5, total: 7 },
-  { title: "Медитация 5 мин/день", reward: "+20 XP", progress: 1, total: 7 },
+  { title: "7 дней без сахара", reward: "+50 баллов", progress: 3, total: 7 },
+  { title: "10 000 шагов/день", reward: "+30 баллов", progress: 5, total: 7 },
+  { title: "Медитация 5 мин/день", reward: "+20 баллов", progress: 1, total: 7 },
 ];
 
 export default function Gamification() {
@@ -42,11 +42,11 @@ export default function Gamification() {
               </div>
               <div>
                 <p className="text-lg font-bold text-foreground">Уровень {profile.level}</p>
-                <p className="text-xs text-muted-foreground">{profile.xp} XP всего</p>
+                <p className="text-xs text-muted-foreground">{profile.xp} баллов всего</p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-sm font-semibold text-foreground">{xpToNext} XP</p>
+              <p className="text-sm font-semibold text-foreground">{xpToNext} баллов</p>
               <p className="text-xs text-muted-foreground">до следующего</p>
             </div>
           </div>
@@ -63,7 +63,7 @@ export default function Gamification() {
           {[{ label: "Рацион", xp: "+10", icon: "🥗" }, { label: "Тренировка", xp: "+5", icon: "💪" }, { label: "Вода", xp: "+3", icon: "💧" }].map((r) => (
             <div key={r.label} className="bg-muted rounded-xl p-3 text-center">
               <span className="text-xl">{r.icon}</span>
-              <p className="text-xs font-semibold text-foreground mt-1">{r.xp} XP</p>
+              <p className="text-xs font-semibold text-foreground mt-1">{r.xp} баллов</p>
               <p className="text-xs text-muted-foreground">{r.label}</p>
             </div>
           ))}

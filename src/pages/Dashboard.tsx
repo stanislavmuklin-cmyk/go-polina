@@ -76,7 +76,7 @@ export default function Dashboard() {
           <div className="bg-card rounded-xl p-4 shadow-soft border border-border">
             <div className="flex items-center gap-2 text-muted-foreground mb-2">
               <Zap className="w-4 h-4" />
-              <span className="text-xs font-medium">XP</span>
+              <span className="text-xs font-medium">Баллы</span>
             </div>
             <p className="text-lg font-bold text-foreground">{profile.xp}</p>
             <p className="text-xs text-muted-foreground">Уровень {profile.level}</p>
@@ -144,7 +144,7 @@ export default function Dashboard() {
             </div>
             <div>
               <p className="text-sm font-semibold">Сдать отчёт</p>
-              <p className="text-xs opacity-80">Записать вес, энергию и замеры</p>
+              <p className="text-xs opacity-80">Ежедневный и еженедельный отчёты</p>
             </div>
           </Link>
         </motion.div>
