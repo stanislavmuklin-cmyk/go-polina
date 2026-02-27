@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Building2, Home, UserPlus, Shield, Loader2, Sparkles, ImageIcon } from "lucide-react";
+import { Plus, Trash2, Save, Building2, Home, UserPlus, Shield, Loader2, Sparkles, ImageIcon, Users, CheckCircle, XCircle } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { generateContent } from "@/lib/ai";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
@@ -50,6 +51,13 @@ export default function Admin() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviting, setInviting] = useState(false);
 
+  // Telegram members
+  const [members, setMembers] = useState<any[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [newTelegramId, setNewTelegramId] = useState("");
+  const [newUsername, setNewUsername] = useState("");
+  const [addingMember, setAddingMember] = useState(false);
+
   const loadWorkouts = useCallback(async (loc: string) => {
     setLoadingWorkouts(true);
     const { data } = await supabase
@@ -89,6 +97,48 @@ export default function Admin() {
     };
     loadAdmins();
   }, []);
+
+  const loadMembers = useCallback(async () => {
+    setMembersLoading(true);
+    const { data } = await supabase.from("telegram_members").select("*").order("activated_at", { ascending: false });
+    if (data) setMembers(data);
+    setMembersLoading(false);
+  }, []);
+
+  useEffect(() => {
+    loadMembers();
+  }, [loadMembers]);
+
+  const toggleMember = async (telegramId: number, activate: boolean) => {
+    await supabase.from("telegram_members").update({
+      is_active: activate,
+      ...(activate ? { activated_at: new Date().toISOString(), deactivated_at: null } : { deactivated_at: new Date().toISOString() }),
+    }).eq("telegram_id", telegramId);
+    loadMembers();
+    toast.success(activate ? "Участник активирован" : "Участник деактивирован");
+  };
+
+  const addMember = async () => {
+    if (!newTelegramId.trim()) return;
+    setAddingMember(true);
+    try {
+      const { error } = await supabase.from("telegram_members").upsert({
+        telegram_id: parseInt(newTelegramId.trim()),
+        telegram_username: newUsername.trim() || null,
+        is_active: true,
+        activated_at: new Date().toISOString(),
+      }, { onConflict: "telegram_id" });
+      if (error) throw error;
+      toast.success("Участник добавлен");
+      setNewTelegramId("");
+      setNewUsername("");
+      loadMembers();
+    } catch (e: any) {
+      toast.error(e.message || "Ошибка");
+    } finally {
+      setAddingMember(false);
+    }
+  };
 
   const generateWithAI = async () => {
     setGenerating(true);
@@ -221,7 +271,8 @@ export default function Admin() {
         <Tabs defaultValue="workouts">
           <TabsList className="w-full">
             <TabsTrigger value="workouts" className="flex-1">Тренировки</TabsTrigger>
-            <TabsTrigger value="admins" className="flex-1">Администраторы</TabsTrigger>
+            <TabsTrigger value="members" className="flex-1">Участники</TabsTrigger>
+            <TabsTrigger value="admins" className="flex-1">Админы</TabsTrigger>
           </TabsList>
 
           <TabsContent value="workouts" className="space-y-4 mt-4">
@@ -348,6 +399,77 @@ export default function Admin() {
                 </Button>
               </>
             )}
+          </TabsContent>
+
+          <TabsContent value="members" className="space-y-4 mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Users className="w-4 h-4" /> Добавить участника
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex gap-2">
+                  <Input value={newTelegramId} onChange={e => setNewTelegramId(e.target.value)} placeholder="Telegram ID (число)" className="flex-1" />
+                  <Input value={newUsername} onChange={e => setNewUsername(e.target.value)} placeholder="@username" className="flex-1" />
+                  <Button onClick={addMember} disabled={addingMember}>
+                    {addingMember ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Webhook URL для платёжного сервиса:{" "}
+                  <code className="bg-muted px-1 py-0.5 rounded text-xs break-all">
+                    {`https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/telegram-webhook`}
+                  </code>
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Участники клуба ({members.length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {membersLoading ? (
+                  <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>
+                ) : members.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Нет участников</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Telegram ID</TableHead>
+                          <TableHead>Username</TableHead>
+                          <TableHead>Статус</TableHead>
+                          <TableHead className="w-[80px]"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {members.map((m) => (
+                          <TableRow key={m.id}>
+                            <TableCell className="font-mono text-xs">{m.telegram_id}</TableCell>
+                            <TableCell className="text-sm">{m.telegram_username ? `@${m.telegram_username}` : "—"}</TableCell>
+                            <TableCell>
+                              {m.is_active ? (
+                                <span className="inline-flex items-center gap-1 text-xs text-green-600"><CheckCircle className="w-3.5 h-3.5" /> Активен</span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-xs text-destructive"><XCircle className="w-3.5 h-3.5" /> Неактивен</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Button variant="ghost" size="sm" onClick={() => toggleMember(m.telegram_id, !m.is_active)}>
+                                {m.is_active ? <XCircle className="w-3.5 h-3.5 text-destructive" /> : <CheckCircle className="w-3.5 h-3.5 text-green-600" />}
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="admins" className="space-y-4 mt-4">

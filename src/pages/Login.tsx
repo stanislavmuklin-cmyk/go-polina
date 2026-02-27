@@ -5,14 +5,39 @@ import { motion } from "framer-motion";
 import { Loader2, Mail, Lock, Eye, EyeOff } from "lucide-react";
 
 export default function Login() {
-  const { signIn, user, loading } = useAuth();
+  const { signIn, user, loading, isTelegram, telegramError } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  if (loading) return null;
+  if (loading) return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+    </div>
+  );
+
+  // Telegram auto-auth: show error or loading
+  if (isTelegram) {
+    if (telegramError) {
+      return (
+        <div className="min-h-screen bg-background flex items-center justify-center p-4">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm text-center space-y-4">
+            <h1 className="font-display text-2xl font-bold text-foreground">Доступ закрыт</h1>
+            <p className="text-muted-foreground text-sm">{telegramError}</p>
+          </motion.div>
+        </div>
+      );
+    }
+    if (user) return <Navigate to="/dashboard" replace />;
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   if (user) return <Navigate to="/dashboard" replace />;
 
   const handleSubmit = async (e: React.FormEvent) => {

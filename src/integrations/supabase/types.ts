@@ -173,6 +173,39 @@ export type Database = {
         }
         Relationships: []
       }
+      telegram_members: {
+        Row: {
+          activated_at: string
+          deactivated_at: string | null
+          id: string
+          is_active: boolean
+          telegram_first_name: string | null
+          telegram_id: number
+          telegram_username: string | null
+          user_id: string | null
+        }
+        Insert: {
+          activated_at?: string
+          deactivated_at?: string | null
+          id?: string
+          is_active?: boolean
+          telegram_first_name?: string | null
+          telegram_id: number
+          telegram_username?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          activated_at?: string
+          deactivated_at?: string | null
+          id?: string
+          is_active?: boolean
+          telegram_first_name?: string | null
+          telegram_id?: number
+          telegram_username?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
