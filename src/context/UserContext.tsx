@@ -9,6 +9,8 @@ export interface UserProfile {
   fitnessLevel: "beginner" | "intermediate" | "advanced";
   goal: "fat-loss" | "muscle" | "energy" | "skin" | "anti-stress";
   dietPreferences: string[];
+  dietType: "no-restriction" | "keto" | "paleo" | "mediterranean" | "low-carb";
+  workoutLocation: "gym" | "home";
   equipment: string[];
   trackCycle: boolean;
   complaints: string;
@@ -30,6 +32,8 @@ const defaultProfile: UserProfile = {
   fitnessLevel: "beginner",
   goal: "fat-loss",
   dietPreferences: [],
+  dietType: "no-restriction",
+  workoutLocation: "gym",
   equipment: [],
   trackCycle: false,
   complaints: "",
@@ -62,7 +66,7 @@ export const useUser = () => {
 export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [profile, setProfile] = useState<UserProfile>(() => {
     const saved = localStorage.getItem("wellness_profile");
-    return saved ? JSON.parse(saved) : defaultProfile;
+    return saved ? { ...defaultProfile, ...JSON.parse(saved) } : defaultProfile;
   });
   const [isOnboarded, setIsOnboarded] = useState(() => {
     return localStorage.getItem("wellness_onboarded") === "true";
