@@ -1,6 +1,6 @@
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
-import { ClipboardCheck, Moon } from "lucide-react";
+import { ClipboardCheck, Moon, Footprints } from "lucide-react";
 import { useState } from "react";
 import { useUser } from "@/context/UserContext";
 import { format } from "date-fns";
@@ -18,10 +18,9 @@ const nutritionLabels: Record<number, string> = {
   9: "🌟 Почти идеально", 10: "👑 Идеально",
 };
 
-const sleepLabels: Record<number, string> = {
-  1: "😵 Не спал(а)", 2: "😩 Ужасно", 3: "😔 Плохо", 4: "😕 Так себе",
-  5: "😐 Средне", 6: "🙂 Неплохо", 7: "😊 Хорошо", 8: "😴 Отлично",
-  9: "🌙 Прекрасно", 10: "💤 Идеально",
+const sleepHourLabels: Record<number, string> = {
+  1: "1ч", 2: "2ч", 3: "3ч", 4: "4ч", 5: "5ч", 6: "6ч",
+  7: "7ч", 8: "8ч", 9: "9ч", 10: "10ч", 11: "11ч", 12: "12ч",
 };
 
 export default function DailyReport() {
@@ -33,10 +32,11 @@ export default function DailyReport() {
   const [energy, setEnergy] = useState(5);
   const [nutritionScore, setNutritionScore] = useState(5);
   const [sleep, setSleep] = useState(7);
+  const [steps, setSteps] = useState("");
   const [submitted, setSubmitted] = useState(alreadySubmitted);
 
   const handleSubmit = () => {
-    const entry = { date: today, workoutDone, energy, nutrition: nutritionScore, sleep };
+    const entry = { date: today, workoutDone, energy, nutrition: nutritionScore, sleep, steps: steps ? parseInt(steps) : 0 };
     const updatedReports = [...profile.dailyReports.filter(r => r.date !== today), entry];
     updateProfile({ dailyReports: updatedReports });
     addXP(5);
@@ -84,15 +84,25 @@ export default function DailyReport() {
             <Slider value={[nutritionScore]} onValueChange={v => setNutritionScore(v[0])} min={1} max={10} step={1} />
           </div>
 
-          {/* Sleep slider */}
+          {/* Sleep hours slider */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm text-muted-foreground flex items-center gap-1.5">
-                <Moon className="w-4 h-4" /> Качество сна
+                <Moon className="w-4 h-4" /> Часов сна
               </label>
-              <span className="text-sm font-medium text-foreground">{sleepLabels[sleep]}</span>
+              <span className="text-sm font-medium text-foreground">{sleepHourLabels[sleep]}</span>
             </div>
-            <Slider value={[sleep]} onValueChange={v => setSleep(v[0])} min={1} max={10} step={1} />
+            <Slider value={[sleep]} onValueChange={v => setSleep(v[0])} min={1} max={12} step={1} />
+          </div>
+
+          {/* Steps input */}
+          <div>
+            <label className="text-sm text-muted-foreground mb-1.5 block flex items-center gap-1.5">
+              <Footprints className="w-4 h-4" /> Количество шагов
+            </label>
+            <input type="number" placeholder="Например, 8000" value={steps} onChange={e => setSteps(e.target.value)}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
           </div>
 
           <button
