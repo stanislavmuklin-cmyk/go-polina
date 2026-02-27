@@ -22,7 +22,7 @@ export interface UserProfile {
   completedMeals: string[];
   completedSupplements: string[];
   lastWeeklyReportDate: string | null;
-  dailyReports: { date: string; workoutDone: boolean; energy: number; nutrition: number; sleep: number }[];
+  dailyReports: { date: string; workoutDone: boolean; energy: number; nutrition: number; sleep: number; steps: number }[];
 }
 
 const defaultProfile: UserProfile = {
