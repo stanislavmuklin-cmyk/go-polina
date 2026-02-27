@@ -7,11 +7,11 @@ import { Input } from "@/components/ui/input";
 import { ArrowRight, ArrowLeft, Sparkles } from "lucide-react";
 
 const goals = [
-  { value: "fat-loss", label: "Похудение", emoji: "🔥" },
-  { value: "muscle", label: "Набор массы", emoji: "💪" },
-  { value: "energy", label: "Энергия", emoji: "⚡" },
-  { value: "skin", label: "Красота кожи", emoji: "✨" },
-  { value: "anti-stress", label: "Антистресс", emoji: "🧘" },
+  { value: "fat-loss", label: "Похудение", emoji: "🔥", desc: "Снижение веса с сохранением мышц" },
+  { value: "muscle", label: "Набор массы", emoji: "💪", desc: "Увеличение мышечной массы и силы" },
+  { value: "energy", label: "Энергия", emoji: "⚡", desc: "Повышение жизненного тонуса" },
+  { value: "skin", label: "Красота кожи", emoji: "✨", desc: "Улучшение состояния кожи и волос" },
+  { value: "anti-stress", label: "Антистресс", emoji: "🧘", desc: "Снижение стресса и тревожности" },
 ] as const;
 
 const fitnessLevels = [
@@ -21,6 +21,19 @@ const fitnessLevels = [
 ] as const;
 
 const dietOptions = ["Веган", "Вегетарианец", "Без глютена", "Без лактозы", "Халяль", "Кето"];
+
+const dietTypes = [
+  { value: "no-restriction", label: "Без ограничений", emoji: "🍽️" },
+  { value: "keto", label: "Кето", emoji: "🥑" },
+  { value: "paleo", label: "Палео", emoji: "🥩" },
+  { value: "mediterranean", label: "Средиземноморская", emoji: "🫒" },
+  { value: "low-carb", label: "Низкоуглеводная", emoji: "🥗" },
+] as const;
+
+const workoutLocations = [
+  { value: "gym", label: "Зал", emoji: "🏋️" },
+  { value: "home", label: "Дома", emoji: "🏠" },
+] as const;
 
 export default function Onboarding() {
   const [step, setStep] = useState(0);
@@ -33,12 +46,14 @@ export default function Onboarding() {
   const [height, setHeight] = useState("165");
   const [weight, setWeight] = useState("65");
   const [fitnessLevel, setFitnessLevel] = useState<"beginner" | "intermediate" | "advanced">("beginner");
+  const [workoutLocation, setWorkoutLocation] = useState<"gym" | "home">("gym");
   const [goal, setGoal] = useState<typeof goals[number]["value"]>("fat-loss");
+  const [dietType, setDietType] = useState<"no-restriction" | "keto" | "paleo" | "mediterranean" | "low-carb">("no-restriction");
   const [dietPreferences, setDietPreferences] = useState<string[]>([]);
   const [trackCycle, setTrackCycle] = useState(false);
   const [complaints, setComplaints] = useState("");
 
-  const totalSteps = 5;
+  const totalSteps = 6;
 
   const toggleDiet = (d: string) => {
     setDietPreferences((prev) => prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]);
@@ -47,7 +62,7 @@ export default function Onboarding() {
   const finish = () => {
     updateProfile({
       name, gender, age: Number(age), height: Number(height), weight: Number(weight),
-      fitnessLevel, goal, dietPreferences, trackCycle, complaints, xp: 0, level: 1, streak: 1,
+      fitnessLevel, workoutLocation, goal, dietType, dietPreferences, trackCycle, complaints, xp: 0, level: 1, streak: 1,
     });
     setIsOnboarded(true);
     navigate("/dashboard");
@@ -153,7 +168,10 @@ export default function Onboarding() {
                       }`}
                     >
                       <span className="text-xl">{g.emoji}</span>
-                      <span className="text-sm font-medium text-foreground">{g.label}</span>
+                      <div>
+                        <span className="text-sm font-medium text-foreground">{g.label}</span>
+                        <p className="text-xs text-muted-foreground">{g.desc}</p>
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -163,7 +181,7 @@ export default function Onboarding() {
             {step === 3 && (
               <div className="space-y-6">
                 <div>
-                  <h2 className="font-display text-2xl font-bold text-foreground">Уровень и питание</h2>
+                  <h2 className="font-display text-2xl font-bold text-foreground">Уровень и тренировки</h2>
                   <p className="text-muted-foreground mt-1">Настроим программу под вас</p>
                 </div>
                 <div className="space-y-4">
@@ -183,7 +201,47 @@ export default function Onboarding() {
                     </div>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-foreground mb-2 block">Особенности питания</label>
+                    <label className="text-sm font-medium text-foreground mb-2 block">Где тренируетесь?</label>
+                    <div className="flex gap-2">
+                      {workoutLocations.map((wl) => (
+                        <button key={wl.value} onClick={() => setWorkoutLocation(wl.value)}
+                          className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl text-sm font-medium transition-all border ${
+                            workoutLocation === wl.value ? "border-primary bg-accent text-accent-foreground" : "border-border text-muted-foreground hover:border-primary/50"
+                          }`}
+                        >
+                          <span>{wl.emoji}</span> {wl.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {step === 4 && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="font-display text-2xl font-bold text-foreground">Питание</h2>
+                  <p className="text-muted-foreground mt-1">Выберите подход к питанию</p>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-2 block">Тип диеты</label>
+                    <div className="grid gap-2">
+                      {dietTypes.map((dt) => (
+                        <button key={dt.value} onClick={() => setDietType(dt.value)}
+                          className={`flex items-center gap-3 p-3 rounded-xl text-left transition-all border ${
+                            dietType === dt.value ? "border-primary bg-accent shadow-soft" : "border-border hover:border-primary/30"
+                          }`}
+                        >
+                          <span className="text-lg">{dt.emoji}</span>
+                          <span className="text-sm font-medium text-foreground">{dt.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-2 block">Ограничения и аллергии</label>
                     <div className="flex flex-wrap gap-2">
                       {dietOptions.map((d) => (
                         <button key={d} onClick={() => toggleDiet(d)}
@@ -198,7 +256,7 @@ export default function Onboarding() {
               </div>
             )}
 
-            {step === 4 && (
+            {step === 5 && (
               <div className="space-y-6">
                 <div>
                   <h2 className="font-display text-2xl font-bold text-foreground">Жалобы и симптомы</h2>

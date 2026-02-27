@@ -1,34 +1,62 @@
 import { motion } from "framer-motion";
 import { AppLayout } from "@/components/AppLayout";
 import { useUser } from "@/context/UserContext";
-import { Check, Dumbbell } from "lucide-react";
-import { useState } from "react";
+import { Check, Dumbbell, RefreshCw, Home, Building2 } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { generateContent } from "@/lib/ai";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 
-const workoutPlans: Record<string, { day: string; type: string; exercises: { name: string; sets: string }[] }[]> = {
-  beginner: [
-    { day: "Пн", type: "Силовая (верх)", exercises: [{ name: "Жим гантелей лёжа", sets: "3×12" }, { name: "Тяга гантели в наклоне", sets: "3×12" }, { name: "Жим стоя", sets: "3×10" }, { name: "Планка", sets: "3×30с" }] },
-    { day: "Ср", type: "Силовая (низ)", exercises: [{ name: "Приседания", sets: "3×15" }, { name: "Выпады", sets: "3×12" }, { name: "Мост", sets: "3×15" }, { name: "Подъёмы на носки", sets: "3×20" }] },
-    { day: "Пт", type: "Кардио + мобильность", exercises: [{ name: "Ходьба", sets: "30 мин" }, { name: "Растяжка", sets: "15 мин" }, { name: "Дыхательные упражнения", sets: "5 мин" }] },
-  ],
-  intermediate: [
-    { day: "Пн", type: "Верх (push)", exercises: [{ name: "Жим штанги", sets: "4×10" }, { name: "Жим гантелей на наклонной", sets: "3×12" }, { name: "Французский жим", sets: "3×12" }, { name: "Разведения", sets: "3×15" }] },
-    { day: "Вт", type: "Низ", exercises: [{ name: "Приседания со штангой", sets: "4×8" }, { name: "Румынская тяга", sets: "3×10" }, { name: "Жим ногами", sets: "3×12" }, { name: "Икры", sets: "4×15" }] },
-    { day: "Чт", type: "Верх (pull)", exercises: [{ name: "Подтягивания", sets: "4×8" }, { name: "Тяга штанги", sets: "3×10" }, { name: "Бицепс", sets: "3×12" }, { name: "Фейс-пулл", sets: "3×15" }] },
-    { day: "Сб", type: "Кардио HIIT", exercises: [{ name: "Интервальный бег", sets: "20 мин" }, { name: "Бёрпи", sets: "4×10" }, { name: "Скакалка", sets: "3×1мин" }] },
-  ],
-  advanced: [
-    { day: "Пн", type: "Грудь + Трицепс", exercises: [{ name: "Жим штанги", sets: "5×5" }, { name: "Жим на наклонной", sets: "4×8" }, { name: "Кроссовер", sets: "3×12" }, { name: "Отжимания на брусьях", sets: "3×макс" }] },
-    { day: "Вт", type: "Спина + Бицепс", exercises: [{ name: "Становая тяга", sets: "5×5" }, { name: "Подтягивания с весом", sets: "4×6" }, { name: "Тяга в наклоне", sets: "4×8" }, { name: "Молотки", sets: "3×12" }] },
-    { day: "Ср", type: "Ноги", exercises: [{ name: "Приседания", sets: "5×5" }, { name: "Фронтальные приседания", sets: "3×8" }, { name: "Выпады с гантелями", sets: "3×12" }, { name: "GHR", sets: "3×10" }] },
-    { day: "Пт", type: "Плечи + руки", exercises: [{ name: "Армейский жим", sets: "4×8" }, { name: "Махи в стороны", sets: "4×12" }, { name: "Суперсет бицепс/трицепс", sets: "4×10" }] },
-    { day: "Сб", type: "Кондиционинг", exercises: [{ name: "Комплекс со штангой", sets: "5 раундов" }, { name: "Гребля", sets: "2000м" }] },
-  ],
-};
+interface WorkoutDay {
+  day: string;
+  type: string;
+  exercises: { name: string; sets: string }[];
+}
 
 export default function Workouts() {
   const { profile, addXP } = useUser();
-  const plan = workoutPlans[profile.fitnessLevel] || workoutPlans.beginner;
+  const [plan, setPlan] = useState<WorkoutDay[]>([]);
+  const [loading, setLoading] = useState(false);
   const [completed, setCompleted] = useState<Set<number>>(new Set());
+  const [location, setLocation] = useState<"gym" | "home">(profile.workoutLocation || "gym");
+
+  const generate = useCallback(async (loc?: "gym" | "home") => {
+    setLoading(true);
+    setCompleted(new Set());
+    const targetLoc = loc || location;
+    try {
+      const profileWithLoc = { ...profile, workoutLocation: targetLoc };
+      const data = await generateContent("workouts", profileWithLoc);
+      if (data?.days) {
+        setPlan(data.days);
+        localStorage.setItem(`workouts_${profile.fitnessLevel}_${targetLoc}_${profile.goal}`, JSON.stringify(data.days));
+      }
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.message || "Ошибка генерации тренировок");
+    } finally {
+      setLoading(false);
+    }
+  }, [profile, location]);
+
+  useEffect(() => {
+    const cacheKey = `workouts_${profile.fitnessLevel}_${location}_${profile.goal}`;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      try { setPlan(JSON.parse(cached)); return; } catch {}
+    }
+    generate(location);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const switchLocation = (loc: "gym" | "home") => {
+    setLocation(loc);
+    const cacheKey = `workouts_${profile.fitnessLevel}_${loc}_${profile.goal}`;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      try { setPlan(JSON.parse(cached)); return; } catch {}
+    }
+    generate(loc);
+  };
 
   const toggleComplete = (idx: number) => {
     setCompleted((prev) => {
@@ -42,53 +70,83 @@ export default function Workouts() {
     <AppLayout>
       <div className="space-y-6">
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="font-display text-2xl font-bold text-foreground">Тренировки</h1>
-          <p className="text-muted-foreground mt-1">
-            Уровень: {profile.fitnessLevel === "beginner" ? "Новичок" : profile.fitnessLevel === "intermediate" ? "Средний" : "Продвинутый"}
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="font-display text-2xl font-bold text-foreground">Тренировки</h1>
+              <p className="text-muted-foreground mt-1">
+                AI-план · {profile.fitnessLevel === "beginner" ? "Новичок" : profile.fitnessLevel === "intermediate" ? "Средний" : "Продвинутый"}
+              </p>
+            </div>
+            <button onClick={() => generate()} disabled={loading}
+              className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 disabled:opacity-50 transition-colors"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+              Обновить
+            </button>
+          </div>
         </motion.div>
 
-        <div className="space-y-4">
-          {plan.map((day, idx) => (
-            <motion.div key={idx} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.05 }}
-              className={`bg-card rounded-xl border border-border shadow-soft overflow-hidden ${completed.has(idx) ? "opacity-70" : ""}`}
+        {/* Location toggle */}
+        <div className="flex gap-2">
+          {([["gym", "Зал", Building2], ["home", "Дома", Home]] as const).map(([val, label, Icon]) => (
+            <button key={val} onClick={() => switchLocation(val)} disabled={loading}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all border ${
+                location === val ? "border-primary bg-accent text-accent-foreground" : "border-border text-muted-foreground hover:border-primary/50"
+              }`}
             >
-              <div className="flex items-center justify-between p-4 border-b border-border">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-wellness-peach flex items-center justify-center">
-                    <Dumbbell className="w-5 h-5 text-foreground" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">{day.day} · {day.type}</p>
-                    <p className="text-xs text-muted-foreground">{day.exercises.length} упражнений</p>
-                  </div>
-                </div>
-                <button onClick={() => toggleComplete(idx)}
-                  className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${
-                    completed.has(idx) ? "border-primary bg-primary" : "border-border hover:border-primary/50"
-                  }`}
-                >
-                  {completed.has(idx) && <Check className="w-4 h-4 text-primary-foreground" />}
-                </button>
-              </div>
-              <div className="p-4 space-y-2">
-                {day.exercises.map((ex, eIdx) => (
-                  <div key={eIdx} className="flex justify-between items-center text-sm">
-                    <span className="text-foreground">{ex.name}</span>
-                    <span className="text-muted-foreground font-mono text-xs">{ex.sets}</span>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
+              <Icon className="w-4 h-4" /> {label}
+            </button>
           ))}
         </div>
 
-        <div className="bg-muted rounded-xl p-4">
-          <p className="text-xs text-muted-foreground">
-            🔄 При пропуске тренировки AI автоматически скорректирует нагрузку. Прогрессия увеличивается каждые 2 недели.
-          </p>
-        </div>
+        {loading ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-card rounded-xl border border-border p-4 space-y-3">
+                <Skeleton className="h-5 w-40" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-5/6" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {plan.map((day, idx) => (
+              <motion.div key={idx} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.05 }}
+                className={`bg-card rounded-xl border border-border shadow-soft overflow-hidden ${completed.has(idx) ? "opacity-70" : ""}`}
+              >
+                <div className="flex items-center justify-between p-4 border-b border-border">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-wellness-peach flex items-center justify-center">
+                      <Dumbbell className="w-5 h-5 text-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{day.day} · {day.type}</p>
+                      <p className="text-xs text-muted-foreground">{day.exercises.length} упражнений</p>
+                    </div>
+                  </div>
+                  <button onClick={() => toggleComplete(idx)}
+                    className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${
+                      completed.has(idx) ? "border-primary bg-primary" : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    {completed.has(idx) && <Check className="w-4 h-4 text-primary-foreground" />}
+                  </button>
+                </div>
+                <div className="p-4 space-y-2">
+                  {day.exercises.map((ex, eIdx) => (
+                    <div key={eIdx} className="flex justify-between items-center text-sm">
+                      <span className="text-foreground">{ex.name}</span>
+                      <span className="text-muted-foreground font-mono text-xs">{ex.sets}</span>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
       </div>
     </AppLayout>
   );
