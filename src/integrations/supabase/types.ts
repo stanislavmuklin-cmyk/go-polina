@@ -68,6 +68,111 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          age: number
+          ai_chat_count: number
+          ai_chat_reset_date: string | null
+          complaints: string
+          completed_meals: Json
+          completed_supplements: Json
+          completed_workouts: Json
+          created_at: string
+          daily_reports: Json
+          diet_preferences: Json
+          diet_type: string
+          equipment: Json
+          fitness_level: string
+          gender: string
+          goal: string
+          height: number
+          id: string
+          is_onboarded: boolean
+          last_daily_reset: string | null
+          last_weekly_report_date: string | null
+          level: number
+          meal_regen_count: number
+          meal_regen_reset_date: string | null
+          name: string
+          streak: number
+          track_cycle: boolean
+          updated_at: string
+          user_id: string
+          water_glasses: number
+          weight: number
+          workout_location: string
+          xp: number
+        }
+        Insert: {
+          age?: number
+          ai_chat_count?: number
+          ai_chat_reset_date?: string | null
+          complaints?: string
+          completed_meals?: Json
+          completed_supplements?: Json
+          completed_workouts?: Json
+          created_at?: string
+          daily_reports?: Json
+          diet_preferences?: Json
+          diet_type?: string
+          equipment?: Json
+          fitness_level?: string
+          gender?: string
+          goal?: string
+          height?: number
+          id?: string
+          is_onboarded?: boolean
+          last_daily_reset?: string | null
+          last_weekly_report_date?: string | null
+          level?: number
+          meal_regen_count?: number
+          meal_regen_reset_date?: string | null
+          name?: string
+          streak?: number
+          track_cycle?: boolean
+          updated_at?: string
+          user_id: string
+          water_glasses?: number
+          weight?: number
+          workout_location?: string
+          xp?: number
+        }
+        Update: {
+          age?: number
+          ai_chat_count?: number
+          ai_chat_reset_date?: string | null
+          complaints?: string
+          completed_meals?: Json
+          completed_supplements?: Json
+          completed_workouts?: Json
+          created_at?: string
+          daily_reports?: Json
+          diet_preferences?: Json
+          diet_type?: string
+          equipment?: Json
+          fitness_level?: string
+          gender?: string
+          goal?: string
+          height?: number
+          id?: string
+          is_onboarded?: boolean
+          last_daily_reset?: string | null
+          last_weekly_report_date?: string | null
+          level?: number
+          meal_regen_count?: number
+          meal_regen_reset_date?: string | null
+          name?: string
+          streak?: number
+          track_cycle?: boolean
+          updated_at?: string
+          user_id?: string
+          water_glasses?: number
+          weight?: number
+          workout_location?: string
+          xp?: number
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string

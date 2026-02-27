@@ -6,11 +6,14 @@ import { Send, Sparkles, Loader2 } from "lucide-react";
 import { streamChat } from "@/lib/ai";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
+import { format } from "date-fns";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
 }
+
+const MAX_CHAT_PER_DAY = 20;
 
 const quickQuestions = [
   "Что мне съесть на перекус?",
@@ -20,13 +23,17 @@ const quickQuestions = [
 ];
 
 export default function AskAI() {
-  const { profile } = useUser();
+  const { profile, updateProfile } = useUser();
   const [messages, setMessages] = useState<Message[]>([
     { role: "assistant", content: "Привет! Я ваш AI-консультант по здоровью и wellness. Задайте вопрос о питании, тренировках, добавках или самочувствии. Я здесь, чтобы помочь 🌿" }
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const today = format(new Date(), "yyyy-MM-dd");
+  const chatCount = profile.aiChatResetDate === today ? profile.aiChatCount : 0;
+  const remaining = MAX_CHAT_PER_DAY - chatCount;
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -36,10 +43,20 @@ export default function AskAI() {
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
+
+    if (remaining <= 0) {
+      toast.error(`Лимит запросов на сегодня исчерпан (${MAX_CHAT_PER_DAY}/${MAX_CHAT_PER_DAY})`);
+      return;
+    }
+
     const userMsg: Message = { role: "user", content: text };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setIsLoading(true);
+
+    // Increment counter
+    const newCount = chatCount + 1;
+    updateProfile({ aiChatCount: newCount, aiChatResetDate: today });
 
     let assistantSoFar = "";
     const upsertAssistant = (chunk: string) => {
@@ -54,7 +71,7 @@ export default function AskAI() {
     };
 
     try {
-      const chatHistory = [...messages.filter(m => messages.indexOf(m) > 0), userMsg]; // exclude initial greeting
+      const chatHistory = [...messages.filter(m => messages.indexOf(m) > 0), userMsg];
       await streamChat({
         messages: chatHistory,
         profile,
@@ -72,9 +89,12 @@ export default function AskAI() {
     <AppLayout>
       <div className="flex flex-col h-[calc(100vh-8rem)] lg:h-[calc(100vh-4rem)]">
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mb-4">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-primary" />
-            <h1 className="font-display text-2xl font-bold text-foreground">Спросить AI</h1>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-6 h-6 text-primary" />
+              <h1 className="font-display text-2xl font-bold text-foreground">Спросить AI</h1>
+            </div>
+            <span className="text-xs text-muted-foreground">{remaining}/{MAX_CHAT_PER_DAY} запросов</span>
           </div>
         </motion.div>
 
@@ -112,7 +132,7 @@ export default function AskAI() {
         {messages.length <= 1 && (
           <div className="flex flex-wrap gap-2 mb-3">
             {quickQuestions.map((q) => (
-              <button key={q} onClick={() => sendMessage(q)} disabled={isLoading}
+              <button key={q} onClick={() => sendMessage(q)} disabled={isLoading || remaining <= 0}
                 className="text-xs bg-accent text-accent-foreground px-3 py-1.5 rounded-full hover:bg-primary hover:text-primary-foreground transition-all disabled:opacity-50"
               >{q}</button>
             ))}
@@ -123,11 +143,11 @@ export default function AskAI() {
         <div className="flex gap-2 pt-2 border-t border-border">
           <input value={input} onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && sendMessage(input)}
-            placeholder="Задайте вопрос..."
-            disabled={isLoading}
+            placeholder={remaining <= 0 ? "Лимит запросов исчерпан" : "Задайте вопрос..."}
+            disabled={isLoading || remaining <= 0}
             className="flex-1 rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
           />
-          <button onClick={() => sendMessage(input)} disabled={isLoading || !input.trim()}
+          <button onClick={() => sendMessage(input)} disabled={isLoading || !input.trim() || remaining <= 0}
             className="w-12 h-12 rounded-xl gradient-primary flex items-center justify-center text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             <Send className="w-5 h-5" />

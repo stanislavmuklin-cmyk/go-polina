@@ -1,12 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, Dumbbell, Apple, TrendingUp, Zap, Trophy, User, HelpCircle, 
-  MessageCircle, X, Menu, ShieldCheck 
+  MessageCircle, X, Menu 
 } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUser } from "@/context/UserContext";
-import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 const navItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Панель" },
@@ -15,7 +14,6 @@ const navItems = [
   { to: "/progress", icon: TrendingUp, label: "Прогресс" },
   { to: "/sos", icon: Zap, label: "SOS" },
   { to: "/gamification", icon: Trophy, label: "Достижения" },
-  
   { to: "/profile", icon: User, label: "Профиль" },
   { to: "/ask-ai", icon: MessageCircle, label: "AI-агент" },
   { to: "/faq", icon: HelpCircle, label: "FAQ" },
@@ -25,11 +23,6 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { profile } = useUser();
-  const { isAdmin } = useIsAdmin();
-
-  const allNavItems = isAdmin
-    ? [...navItems, { to: "/admin", icon: ShieldCheck, label: "Админ" }]
-    : navItems;
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -40,7 +33,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
           <p className="text-xs text-muted-foreground mt-1">Интеллектуальная система</p>
         </div>
         <nav className="flex-1 flex flex-col gap-0.5">
-          {allNavItems.map((item) => {
+          {navItems.map((item) => {
             const active = location.pathname === item.to;
             return (
               <Link
@@ -98,7 +91,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                 <button onClick={() => setMobileOpen(false)} className="p-2"><X className="w-5 h-5" /></button>
               </div>
               <nav className="flex flex-col gap-0.5">
-                {allNavItems.map((item) => {
+                {navItems.map((item) => {
                   const active = location.pathname === item.to;
                   return (
                     <Link
