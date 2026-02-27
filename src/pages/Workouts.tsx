@@ -1,18 +1,25 @@
 import { motion } from "framer-motion";
 import { AppLayout } from "@/components/AppLayout";
 import { useUser } from "@/context/UserContext";
-import { Check, Dumbbell, RefreshCw, Home, Building2 } from "lucide-react";
+import { Check, Dumbbell, RefreshCw, Home, Building2, Sparkles, Lock, X } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { generateContent } from "@/lib/ai";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+interface Exercise {
+  name: string;
+  sets: string;
+  image?: string;
+}
 
 interface WorkoutDay {
   day: string;
   type: string;
-  exercises: { name: string; sets: string }[];
+  exercises: Exercise[];
 }
 
 export default function Workouts() {
@@ -23,6 +30,8 @@ export default function Workouts() {
   const [completed, setCompleted] = useState<Set<number>>(new Set());
   const [location, setLocation] = useState<"gym" | "home">(profile.workoutLocation || "gym");
   const [isAdminPlan, setIsAdminPlan] = useState(false);
+  const [upgrading, setUpgrading] = useState(false);
+  const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
 
   const loadAdminWorkouts = useCallback(async (loc: string): Promise<WorkoutDay[] | null> => {
     const { data } = await supabase
@@ -35,7 +44,7 @@ export default function Workouts() {
       return data.map((r: any) => ({
         day: r.day,
         type: r.type,
-        exercises: r.exercises as unknown as { name: string; sets: string }[],
+        exercises: r.exercises as unknown as Exercise[],
       }));
     }
     return null;
@@ -63,7 +72,18 @@ export default function Workouts() {
 
   const loadForLocation = useCallback(async (loc: "gym" | "home") => {
     setLoading(true);
-    // Try admin workouts first
+    // Check if user has a personal upgraded plan
+    const personalKey = `workouts_personal_${loc}_${profile.goal}`;
+    const personal = localStorage.getItem(personalKey);
+    if (personal) {
+      try {
+        setPlan(JSON.parse(personal));
+        setIsAdminPlan(false);
+        setLoading(false);
+        return;
+      } catch {}
+    }
+    // Try admin workouts
     const adminPlan = await loadAdminWorkouts(loc);
     if (adminPlan) {
       setPlan(adminPlan);
@@ -103,6 +123,27 @@ export default function Workouts() {
     });
   };
 
+  const upgradePlan = async () => {
+    if (profile.level < 10) return;
+    setUpgrading(true);
+    try {
+      const data = await generateContent("workouts", { ...profile, workoutLocation: location });
+      if (data?.days) {
+        setPlan(data.days);
+        setIsAdminPlan(false);
+        const personalKey = `workouts_personal_${location}_${profile.goal}`;
+        localStorage.setItem(personalKey, JSON.stringify(data.days));
+        toast.success("Программа прокачана под ваш профиль!");
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Ошибка генерации");
+    } finally {
+      setUpgrading(false);
+    }
+  };
+
+  const canUpgrade = profile.level >= 10;
+
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -111,7 +152,7 @@ export default function Workouts() {
             <div>
               <h1 className="font-display text-2xl font-bold text-foreground">Тренировки</h1>
               <p className="text-muted-foreground mt-1">
-                {isAdminPlan ? "План от тренера" : `AI-план · ${profile.fitnessLevel === "beginner" ? "Новичок" : profile.fitnessLevel === "intermediate" ? "Средний" : "Продвинутый"}`}
+                {isAdminPlan ? "План от тренера" : `Персональный AI-план · ${profile.fitnessLevel === "beginner" ? "Новичок" : profile.fitnessLevel === "intermediate" ? "Средний" : "Продвинутый"}`}
               </p>
             </div>
             {isAdmin && (
@@ -123,6 +164,33 @@ export default function Workouts() {
               </button>
             )}
           </div>
+        </motion.div>
+
+        {/* Upgrade button */}
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+          <button
+            onClick={upgradePlan}
+            disabled={!canUpgrade || upgrading || loading}
+            className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all border ${
+              canUpgrade
+                ? "border-primary bg-primary/10 text-primary hover:bg-primary/20"
+                : "border-border bg-muted text-muted-foreground cursor-not-allowed"
+            }`}
+          >
+            {upgrading ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : canUpgrade ? (
+              <Sparkles className="w-4 h-4" />
+            ) : (
+              <Lock className="w-4 h-4" />
+            )}
+            <div className="flex flex-col items-center">
+              <span>Прокачать программу</span>
+              {!canUpgrade && (
+                <span className="text-[10px] opacity-70">Доступно после 10-го уровня</span>
+              )}
+            </div>
+          </button>
         </motion.div>
 
         {/* Location toggle */}
@@ -176,16 +244,45 @@ export default function Workouts() {
                 </div>
                 <div className="p-4 space-y-2">
                   {day.exercises.map((ex, eIdx) => (
-                    <div key={eIdx} className="flex justify-between items-center text-sm">
+                    <button
+                      key={eIdx}
+                      onClick={() => setSelectedExercise(ex)}
+                      className="flex justify-between items-center text-sm w-full text-left py-1 px-1 -mx-1 rounded-lg hover:bg-accent/50 transition-colors"
+                    >
                       <span className="text-foreground">{ex.name}</span>
                       <span className="text-muted-foreground font-mono text-xs">{ex.sets}</span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </motion.div>
             ))}
           </div>
         )}
+
+        {/* Exercise detail dialog */}
+        <Dialog open={!!selectedExercise} onOpenChange={(v) => !v && setSelectedExercise(null)}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="text-lg">{selectedExercise?.name}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              {selectedExercise?.image && (
+                <img
+                  src={selectedExercise.image}
+                  alt={selectedExercise.name}
+                  className="w-full rounded-xl object-cover max-h-64"
+                />
+              )}
+              <div className="flex items-center gap-2 text-sm">
+                <Dumbbell className="w-4 h-4 text-primary" />
+                <span className="text-foreground font-medium">{selectedExercise?.sets}</span>
+              </div>
+              {!selectedExercise?.image && (
+                <p className="text-xs text-muted-foreground">Изображение не добавлено</p>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );
