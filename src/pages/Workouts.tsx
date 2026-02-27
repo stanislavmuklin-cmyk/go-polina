@@ -6,6 +6,8 @@ import { useState, useEffect, useCallback } from "react";
 import { generateContent } from "@/lib/ai";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 interface WorkoutDay {
   day: string;
@@ -15,10 +17,29 @@ interface WorkoutDay {
 
 export default function Workouts() {
   const { profile, addXP } = useUser();
+  const { isAdmin } = useIsAdmin();
   const [plan, setPlan] = useState<WorkoutDay[]>([]);
   const [loading, setLoading] = useState(false);
   const [completed, setCompleted] = useState<Set<number>>(new Set());
   const [location, setLocation] = useState<"gym" | "home">(profile.workoutLocation || "gym");
+  const [isAdminPlan, setIsAdminPlan] = useState(false);
+
+  const loadAdminWorkouts = useCallback(async (loc: string): Promise<WorkoutDay[] | null> => {
+    const { data } = await supabase
+      .from("admin_workouts")
+      .select("*")
+      .eq("location", loc)
+      .order("sort_order");
+
+    if (data && data.length > 0) {
+      return data.map((r: any) => ({
+        day: r.day,
+        type: r.type,
+        exercises: r.exercises as unknown as { name: string; sets: string }[],
+      }));
+    }
+    return null;
+  }, []);
 
   const generate = useCallback(async (loc?: "gym" | "home") => {
     setLoading(true);
@@ -29,6 +50,7 @@ export default function Workouts() {
       const data = await generateContent("workouts", profileWithLoc);
       if (data?.days) {
         setPlan(data.days);
+        setIsAdminPlan(false);
         localStorage.setItem(`workouts_${profile.fitnessLevel}_${targetLoc}_${profile.goal}`, JSON.stringify(data.days));
       }
     } catch (e: any) {
@@ -39,23 +61,38 @@ export default function Workouts() {
     }
   }, [profile, location]);
 
-  useEffect(() => {
-    const cacheKey = `workouts_${profile.fitnessLevel}_${location}_${profile.goal}`;
+  const loadForLocation = useCallback(async (loc: "gym" | "home") => {
+    setLoading(true);
+    // Try admin workouts first
+    const adminPlan = await loadAdminWorkouts(loc);
+    if (adminPlan) {
+      setPlan(adminPlan);
+      setIsAdminPlan(true);
+      setLoading(false);
+      return;
+    }
+    // Fallback to cache / AI
+    const cacheKey = `workouts_${profile.fitnessLevel}_${loc}_${profile.goal}`;
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
-      try { setPlan(JSON.parse(cached)); return; } catch {}
+      try {
+        setPlan(JSON.parse(cached));
+        setIsAdminPlan(false);
+        setLoading(false);
+        return;
+      } catch {}
     }
-    generate(location);
+    setLoading(false);
+    generate(loc);
+  }, [loadAdminWorkouts, profile.fitnessLevel, profile.goal, generate]);
+
+  useEffect(() => {
+    loadForLocation(location);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const switchLocation = (loc: "gym" | "home") => {
     setLocation(loc);
-    const cacheKey = `workouts_${profile.fitnessLevel}_${loc}_${profile.goal}`;
-    const cached = localStorage.getItem(cacheKey);
-    if (cached) {
-      try { setPlan(JSON.parse(cached)); return; } catch {}
-    }
-    generate(loc);
+    loadForLocation(loc);
   };
 
   const toggleComplete = (idx: number) => {
@@ -74,15 +111,17 @@ export default function Workouts() {
             <div>
               <h1 className="font-display text-2xl font-bold text-foreground">Тренировки</h1>
               <p className="text-muted-foreground mt-1">
-                AI-план · {profile.fitnessLevel === "beginner" ? "Новичок" : profile.fitnessLevel === "intermediate" ? "Средний" : "Продвинутый"}
+                {isAdminPlan ? "План от тренера" : `AI-план · ${profile.fitnessLevel === "beginner" ? "Новичок" : profile.fitnessLevel === "intermediate" ? "Средний" : "Продвинутый"}`}
               </p>
             </div>
-            <button onClick={() => generate()} disabled={loading}
-              className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 disabled:opacity-50 transition-colors"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-              Обновить
-            </button>
+            {isAdmin && (
+              <button onClick={() => generate()} disabled={loading}
+                className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 disabled:opacity-50 transition-colors"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+                Обновить
+              </button>
+            )}
           </div>
         </motion.div>
 

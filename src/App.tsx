@@ -17,12 +17,14 @@ import Protocols from "./pages/Protocols";
 import Profile from "./pages/Profile";
 import FAQ from "./pages/FAQ";
 import AskAI from "./pages/AskAI";
+import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import { Loader2 } from "lucide-react";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +42,17 @@ const AuthGate = ({ children }: { children: React.ReactNode }) => {
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isOnboarded } = useUser();
   if (!isOnboarded) return <Navigate to="/onboarding" replace />;
+  return <>{children}</>;
+};
+
+const AdminGate = ({ children }: { children: React.ReactNode }) => {
+  const { isAdmin, loading } = useIsAdmin();
+  if (loading) return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+    </div>
+  );
+  if (!isAdmin) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 };
 
@@ -66,6 +79,7 @@ const AppRoutes = () => {
       <Route path="/profile" element={<AuthGate><ProtectedRoute><Profile /></ProtectedRoute></AuthGate>} />
       <Route path="/faq" element={<AuthGate><ProtectedRoute><FAQ /></ProtectedRoute></AuthGate>} />
       <Route path="/ask-ai" element={<AuthGate><ProtectedRoute><AskAI /></ProtectedRoute></AuthGate>} />
+      <Route path="/admin" element={<AuthGate><AdminGate><Admin /></AdminGate></AuthGate>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
