@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Building2, Home, UserPlus, Shield, Loader2 } from "lucide-react";
+import { Plus, Trash2, Save, Building2, Home, UserPlus, Shield, Loader2, Sparkles, ImageIcon } from "lucide-react";
+import { generateContent } from "@/lib/ai";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const DAYS = [
   { name: "Пн", sort: 0 },
@@ -22,6 +24,7 @@ const DAYS = [
 interface Exercise {
   name: string;
   sets: string;
+  image?: string;
 }
 
 interface DayPlan {
@@ -40,6 +43,7 @@ export default function Admin() {
   const [week, setWeek] = useState<DayPlan[]>(emptyWeek());
   const [saving, setSaving] = useState(false);
   const [loadingWorkouts, setLoadingWorkouts] = useState(true);
+  const [generating, setGenerating] = useState(false);
 
   // Co-admins
   const [admins, setAdmins] = useState<{ user_id: string; email: string }[]>([]);
@@ -80,20 +84,51 @@ export default function Admin() {
     const loadAdmins = async () => {
       const { data } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
       if (data) {
-        // We can't query auth.users directly, so just show user_ids
         setAdmins(data.map((r: any) => ({ user_id: r.user_id, email: "" })));
       }
     };
     loadAdmins();
   }, []);
 
+  const generateWithAI = async () => {
+    setGenerating(true);
+    try {
+      const defaultProfile = {
+        name: "",
+        fitnessLevel: "intermediate" as const,
+        goal: "general_fitness",
+        workoutLocation: location,
+      };
+      const data = await generateContent("workouts", defaultProfile as any);
+      if (data?.days) {
+        const generated: DayPlan[] = DAYS.map((d, i) => {
+          const aiDay = data.days[i];
+          return {
+            day: d.name,
+            type: aiDay?.type || "",
+            exercises: (aiDay?.exercises || []).map((ex: any) => ({
+              name: ex.name,
+              sets: ex.sets,
+              image: "",
+            })),
+            sort_order: d.sort,
+          };
+        });
+        setWeek(generated);
+        toast.success("Программа сгенерирована! Отредактируйте и сохраните.");
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Ошибка генерации");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const saveWorkouts = async () => {
     if (!user) return;
     setSaving(true);
     try {
-      // Delete existing for this location, then insert
       await supabase.from("admin_workouts").delete().eq("location", location);
-
       const rows = week.map((d) => ({
         location,
         day: d.day,
@@ -103,7 +138,6 @@ export default function Admin() {
         updated_by: user.id,
         updated_at: new Date().toISOString(),
       }));
-
       const { error } = await supabase.from("admin_workouts").insert(rows);
       if (error) throw error;
       toast.success("Тренировки сохранены!");
@@ -121,7 +155,7 @@ export default function Admin() {
   const addExercise = (dayIdx: number) => {
     setWeek((prev) =>
       prev.map((d, i) =>
-        i === dayIdx ? { ...d, exercises: [...d.exercises, { name: "", sets: "" }] } : d
+        i === dayIdx ? { ...d, exercises: [...d.exercises, { name: "", sets: "", image: "" }] } : d
       )
     );
   };
@@ -210,6 +244,21 @@ export default function Admin() {
               )}
             </div>
 
+            {/* AI Generate button */}
+            <Button
+              variant="outline"
+              onClick={generateWithAI}
+              disabled={generating || loadingWorkouts}
+              className="w-full"
+            >
+              {generating ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <Sparkles className="w-4 h-4 mr-2" />
+              )}
+              Сгенерировать с ИИ
+            </Button>
+
             {loadingWorkouts ? (
               <div className="flex justify-center py-12">
                 <Loader2 className="w-6 h-6 animate-spin text-primary" />
@@ -244,6 +293,29 @@ export default function Admin() {
                             placeholder="3×12"
                             className="w-24 h-8 text-sm"
                           />
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className={`h-8 w-8 shrink-0 ${ex.image ? "text-primary" : "text-muted-foreground"}`}
+                              >
+                                <ImageIcon className="w-3.5 h-3.5" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-72 p-3" side="top">
+                              <p className="text-xs text-muted-foreground mb-2">URL изображения</p>
+                              <Input
+                                value={ex.image || ""}
+                                onChange={(e) => updateExercise(dayIdx, exIdx, "image", e.target.value)}
+                                placeholder="https://example.com/image.jpg"
+                                className="h-8 text-sm"
+                              />
+                              {ex.image && (
+                                <img src={ex.image} alt={ex.name} className="mt-2 rounded-lg w-full h-32 object-cover" />
+                              )}
+                            </PopoverContent>
+                          </Popover>
                           <Button
                             variant="ghost"
                             size="icon"
