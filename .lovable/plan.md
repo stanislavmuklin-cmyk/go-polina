@@ -1,157 +1,189 @@
 
-# Plan: Migration to Database + Rate Limits + Daily Reset + Admin Link Cleanup
 
-## Overview
-Five major changes:
-1. Move all user profile data from localStorage to a `profiles` database table
-2. Remove "Админ" from sidebar navigation -- admin panel accessible only via direct URL `/admin`
-3. Add daily auto-reset of counters (water, completed meals/supplements/workouts)
-4. Rate-limit AI chat to 20 requests/day and meal regeneration to 3/day
-5. Cache `useIsAdmin` result in context to eliminate redundant RPC calls
+# Plan: Интеграция Telegram Mini App + контроль подписки клуба
+
+## Обзор
+
+Приложение будет работать в двух режимах:
+- **Как обычный сайт** — вход по email/паролю (как сейчас)
+- **Как Telegram Mini App** — автоматический вход через Telegram, доступ только для членов клуба
+
+При входе через Telegram бот проверяет членство в клубе. Внешний сервис оплаты (ЮKassa, Stripe и т.д.) отправляет webhook при оплате/отмене подписки.
 
 ---
 
-## 1. Database: Create `profiles` table
-
-New migration to create a `profiles` table storing all user data currently in localStorage:
+## Архитектура
 
 ```text
-Table: profiles
-- id: uuid (PK, default gen_random_uuid())
-- user_id: uuid (FK -> auth.users, ON DELETE CASCADE, UNIQUE)
-- name: text (default '')
-- gender: text (default 'female')
-- age: integer (default 30)
-- height: integer (default 165)
-- weight: integer (default 65)
-- fitness_level: text (default 'beginner')
-- goal: text (default 'fat-loss')
-- diet_preferences: jsonb (default '[]')
-- diet_type: text (default 'no-restriction')
-- workout_location: text (default 'gym')
-- equipment: jsonb (default '[]')
-- track_cycle: boolean (default false)
-- complaints: text (default '')
-- xp: integer (default 0)
-- level: integer (default 1)
-- streak: integer (default 0)
-- completed_workouts: jsonb (default '[]')
-- water_glasses: integer (default 0)
-- completed_meals: jsonb (default '[]')
-- completed_supplements: jsonb (default '[]')
-- last_weekly_report_date: date (nullable)
-- daily_reports: jsonb (default '[]')
-- is_onboarded: boolean (default false)
-- last_daily_reset: date (nullable)
-- ai_chat_count: integer (default 0)
-- ai_chat_reset_date: date (nullable)
-- meal_regen_count: integer (default 0)
-- meal_regen_reset_date: date (nullable)
-- created_at: timestamptz (default now())
-- updated_at: timestamptz (default now())
+Пользователь в Telegram
+       |
+       v
+  Telegram Mini App (WebApp SDK)
+       |
+       | initData (подпись Telegram)
+       v
+  Edge Function: telegram-auth
+       |
+       | Проверяет подпись BOT_TOKEN
+       | Создаёт/находит Supabase-пользователя
+       | Проверяет членство в таблице telegram_members
+       | Возвращает session token
+       v
+  Приложение загружается
+       
+---
 
-RLS:
-- Users can SELECT/UPDATE own row (user_id = auth.uid())
-- Users can INSERT own row (user_id = auth.uid())
-
-Trigger: auto-create profile row on auth.users insert
+  Внешний платёжный сервис
+       |
+       | Webhook: оплата / отмена
+       v
+  Edge Function: telegram-webhook
+       |
+       | Обновляет telegram_members.is_active
+       v
+  При следующем входе — доступ открыт/закрыт
 ```
 
 ---
 
-## 2. Rewrite `UserContext.tsx` -- Database-backed
+## 1. Новая таблица: `telegram_members`
 
-Replace localStorage with database reads/writes:
-- On mount (when `user` is available), fetch profile from `profiles` table
-- `updateProfile()` writes partial updates to the database via `supabase.from('profiles').update()`
-- Keep local state for UI responsiveness, debounce DB writes
-- `addXP()` updates both local state and DB
-- Daily reset logic: on load, check if `last_daily_reset < today`, if so reset `water_glasses`, `completed_workouts`, `completed_meals`, `completed_supplements` to defaults and set `last_daily_reset = today`
-- Remove all localStorage usage for profile data
+Хранит связь между Telegram ID и пользователем приложения, а также статус членства.
 
----
+```text
+Table: telegram_members
+- id: uuid (PK)
+- telegram_id: bigint (UNIQUE, NOT NULL) — Telegram user ID
+- user_id: uuid (FK -> auth.users, ON DELETE CASCADE, NULLABLE) — связь с аккаунтом
+- telegram_username: text — @username в Telegram
+- telegram_first_name: text — имя в Telegram
+- is_active: boolean (default true) — активно ли членство
+- activated_at: timestamptz (default now())
+- deactivated_at: timestamptz (nullable)
 
-## 3. Remove "Админ" from sidebar (`AppLayout.tsx`)
-
-- Remove `useIsAdmin` import and call from `AppLayout`
-- Remove the conditional admin nav item from `allNavItems`
-- Admin panel remains accessible only via direct URL `/admin`
-- This eliminates the RPC call on every page navigation for all users
-
----
-
-## 4. Optimize `useIsAdmin` -- cache in memory
-
-- The hook is now only used in `AdminGate` (App.tsx) and `Workouts.tsx`
-- Add a simple module-level cache so the RPC is called at most once per session per user
-- Clear cache on logout
+RLS:
+- Пользователи могут SELECT свою строку (user_id = auth.uid())
+- Edge functions работают через service_role ключ (без RLS)
+```
 
 ---
 
-## 5. Rate Limits
+## 2. Edge Function: `telegram-auth`
 
-### AI Chat (20/day) -- `AskAI.tsx`
-- Before sending, check `profile.ai_chat_count` and `profile.ai_chat_reset_date`
-- If reset date is not today, reset count to 0
-- If count >= 20, show toast "Лимит запросов на сегодня исчерпан (20/20)" and block
-- On successful send, increment count in DB
+Отвечает за авторизацию через Telegram Mini App.
 
-### Meal Regeneration (3/day) -- `Nutrition.tsx`
-- Same pattern with `meal_regen_count` and `meal_regen_reset_date`
-- If count >= 3, show toast "Лимит замен блюд на сегодня исчерпан (3/3)" and block
-- On successful regeneration, increment count in DB
-- Display remaining count near the regenerate button
+**Логика:**
+1. Получает `initData` из запроса (строка, которую Telegram передаёт в WebApp)
+2. Валидирует подпись через HMAC-SHA256 с `BOT_TOKEN` (стандартный алгоритм Telegram)
+3. Извлекает `telegram_id`, `first_name`, `username`
+4. Проверяет `telegram_members` — есть ли запись с `is_active = true`
+5. Если нет активного членства — возвращает ошибку "Доступ только для членов клуба"
+6. Ищет существующего пользователя по `telegram_id` в `telegram_members.user_id`
+7. Если пользователя нет — создаёт через `supabase.auth.admin.createUser()` с email вида `tg_{telegram_id}@telegram.local` и случайным паролем
+8. Генерирует сессию через `supabase.auth.admin.generateLink()` или custom JWT
+9. Возвращает `access_token` и `refresh_token` клиенту
 
----
-
-## 6. Daily Auto-Reset
-
-On profile load in `UserContext`, check `last_daily_reset`:
-- If it's before today, reset these fields:
-  - `water_glasses` -> 0
-  - `completed_workouts` -> []
-  - `completed_meals` -> []
-  - `completed_supplements` -> []
-  - `ai_chat_count` -> 0
-  - `meal_regen_count` -> 0
-- Update `last_daily_reset` to today
-- This runs once per day on first app load
+**Требуемые секреты:** `TELEGRAM_BOT_TOKEN`
 
 ---
 
-## 7. Onboarding Migration
+## 3. Edge Function: `telegram-webhook`
 
-Update `Onboarding.tsx`:
-- On `finish()`, insert/upsert profile row to `profiles` table instead of localStorage
-- Set `is_onboarded = true` in the DB
+Принимает колбэки от внешнего платёжного сервиса о статусе подписки.
 
-Update `Profile.tsx`:
-- `resetProfile()` updates `is_onboarded = false` in DB instead of `localStorage.clear()`
-- Update privacy notice text (data now stored securely in the cloud)
+**Логика:**
+1. Принимает POST-запрос с payload (telegram_id, action: "activate" | "deactivate")
+2. Проверяет секретный ключ webhook (`WEBHOOK_SECRET`) в заголовке
+3. При `activate`:
+   - Upsert в `telegram_members` (telegram_id, is_active = true, activated_at = now())
+4. При `deactivate`:
+   - Update `telegram_members` SET is_active = false, deactivated_at = now()
+5. Возвращает 200 OK
+
+**Формат webhook запроса:**
+```text
+POST /telegram-webhook
+Header: X-Webhook-Secret: <WEBHOOK_SECRET>
+Body: { "telegram_id": 123456789, "action": "activate" | "deactivate" }
+```
+
+Это универсальный формат — вы можете вызывать этот endpoint из любого платёжного сервиса или даже вручную.
+
+**Требуемые секреты:** `WEBHOOK_SECRET`
 
 ---
 
-## Files to Change
+## 4. Фронтенд: Telegram WebApp SDK
 
-| File | Changes |
+**Новый файл: `src/lib/telegram.ts`**
+- Определяет, запущено ли приложение внутри Telegram (`window.Telegram?.WebApp`)
+- Экспортирует `isTelegramMiniApp()` и `getTelegramInitData()`
+- Подключает тему Telegram (тёмная/светлая) к приложению
+
+**Обновление `AuthContext.tsx`:**
+- При загрузке проверяет: если `isTelegramMiniApp()` — вызывает edge function `telegram-auth` с `initData`
+- Устанавливает сессию через `supabase.auth.setSession()`
+- Если не Telegram — работает как раньше (email/пароль)
+
+**Обновление `App.tsx`:**
+- Добавляет `MembershipGate` — проверяет, что у Telegram-пользователя активная подписка
+- Для обычных пользователей (email/пароль) — пропускает проверку членства (или проверяет, по вашему желанию)
+
+---
+
+## 5. Обновление Login/Signup
+
+**Страница Login:**
+- Если открыта в Telegram — автоматический вход, форму не показываем
+- Если открыта как обычный сайт — форма email/пароль как сейчас
+
+**Страница Signup:**
+- Если в Telegram — регистрация автоматическая, перенаправление на onboarding
+- Если как сайт — форма регистрации как сейчас
+
+---
+
+## 6. Админ-панель: управление членами
+
+**Обновление `Admin.tsx`:**
+- Новая вкладка "Участники клуба"
+- Таблица со списком `telegram_members` (telegram_id, username, is_active, дата)
+- Кнопки "Активировать" / "Деактивировать" для ручного управления
+- Полезно для случаев, когда нужно вручную дать/забрать доступ
+
+---
+
+## Файлы для изменения
+
+| Файл | Что меняется |
 |---|---|
-| New migration SQL | Create `profiles` table + trigger + RLS |
-| `src/context/UserContext.tsx` | Full rewrite: DB-backed state, daily reset logic |
-| `src/components/AppLayout.tsx` | Remove admin nav item and `useIsAdmin` |
-| `src/hooks/useIsAdmin.ts` | Add per-session caching |
-| `src/pages/AskAI.tsx` | Add 20/day rate limit check |
-| `src/pages/Nutrition.tsx` | Add 3/day meal regen limit |
-| `src/pages/Onboarding.tsx` | Save to DB instead of localStorage |
-| `src/pages/Profile.tsx` | Reset via DB, update privacy text |
-| `src/pages/Dashboard.tsx` | Minor: water/meal counters now auto-reset |
-| `src/pages/Workouts.tsx` | No admin check needed for nav (already only in AdminGate) |
+| Новая миграция SQL | Таблица `telegram_members` + RLS |
+| `supabase/functions/telegram-auth/index.ts` | Новая edge function: авторизация через Telegram |
+| `supabase/functions/telegram-webhook/index.ts` | Новая edge function: webhook подписки |
+| `supabase/config.toml` | Регистрация двух новых функций (verify_jwt = false) |
+| `src/lib/telegram.ts` | Новый файл: утилиты Telegram WebApp SDK |
+| `src/context/AuthContext.tsx` | Добавить Telegram-авторизацию при загрузке |
+| `src/pages/Login.tsx` | Авто-вход в Telegram-режиме |
+| `src/pages/Signup.tsx` | Авто-регистрация в Telegram-режиме |
+| `src/App.tsx` | MembershipGate для Telegram-пользователей |
+| `src/pages/Admin.tsx` | Вкладка управления участниками клуба |
+| `index.html` | Подключение Telegram WebApp SDK скрипта |
 
 ---
 
-## Technical Notes
+## Требуемые секреты
 
-- Profile data is loaded once on login, cached in React state for performance
-- DB writes are done on each `updateProfile` call (not debounced, since updates are infrequent user actions)
-- The trigger `handle_new_user_profile` auto-creates a profile row on signup so the profile always exists
-- localStorage keys for AI-generated content (meals, supplements, shopping) remain in localStorage as cache -- these are regenerated content, not user data
-- The existing `handle_new_user_role` trigger for admin auto-assignment remains unchanged
+Перед реализацией нужно будет добавить два секрета:
+1. **TELEGRAM_BOT_TOKEN** — токен вашего бота (получен через @BotFather)
+2. **WEBHOOK_SECRET** — произвольная строка для защиты webhook-эндпоинта
+
+---
+
+## Как настроить бота после реализации
+
+1. Откройте @BotFather в Telegram
+2. Отправьте `/setmenubutton` и выберите вашего бота
+3. Укажите URL приложения (например, `https://go-polina.lovable.app`)
+4. Отправьте `/setwebapp` — укажите тот же URL
+5. Теперь у бота появится кнопка "Открыть приложение"
+
