@@ -21,6 +21,8 @@ export interface UserProfile {
   waterGlasses: number;
   completedMeals: string[];
   completedSupplements: string[];
+  lastWeeklyReportDate: string | null;
+  dailyReports: { date: string; workoutDone: boolean; energy: number; nutrition: number; sleep: number }[];
 }
 
 const defaultProfile: UserProfile = {
@@ -44,6 +46,8 @@ const defaultProfile: UserProfile = {
   waterGlasses: 0,
   completedMeals: [],
   completedSupplements: [],
+  lastWeeklyReportDate: null,
+  dailyReports: [],
 };
 
 interface UserContextType {
