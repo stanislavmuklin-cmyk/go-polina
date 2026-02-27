@@ -5,6 +5,7 @@ import { useUser } from "@/context/UserContext";
 import { Send, Sparkles, Loader2 } from "lucide-react";
 import { streamChat } from "@/lib/ai";
 import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
 
 interface Message {
   role: "user" | "assistant";
@@ -88,7 +89,13 @@ export default function AskAI() {
                   ? "bg-primary text-primary-foreground rounded-br-md"
                   : "bg-card border border-border text-foreground shadow-soft rounded-bl-md"
               }`}>
-                <p className="whitespace-pre-line">{msg.content}</p>
+                {msg.role === "assistant" ? (
+                  <div className="prose prose-sm prose-foreground max-w-none [&>p]:mb-1 [&>p:last-child]:mb-0">
+                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <p className="whitespace-pre-line">{msg.content}</p>
+                )}
               </div>
             </motion.div>
           ))}
