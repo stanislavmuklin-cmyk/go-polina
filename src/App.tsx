@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { UserProvider, useUser } from "@/context/UserContext";
 import Index from "./pages/Index";
 import Onboarding from "./pages/Onboarding";
@@ -17,8 +18,24 @@ import Profile from "./pages/Profile";
 import FAQ from "./pages/FAQ";
 import AskAI from "./pages/AskAI";
 import NotFound from "./pages/NotFound";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
+import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient();
+
+const AuthGate = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useAuth();
+  if (loading) return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+    </div>
+  );
+  if (!user) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+};
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isOnboarded } = useUser();
@@ -30,18 +47,25 @@ const AppRoutes = () => {
   const { isOnboarded } = useUser();
   return (
     <Routes>
-      <Route path="/" element={isOnboarded ? <Navigate to="/dashboard" replace /> : <Index />} />
-      <Route path="/onboarding" element={<Onboarding />} />
-      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/workouts" element={<ProtectedRoute><Workouts /></ProtectedRoute>} />
-      <Route path="/nutrition" element={<ProtectedRoute><Nutrition /></ProtectedRoute>} />
-      <Route path="/progress" element={<ProtectedRoute><Progress /></ProtectedRoute>} />
-      <Route path="/sos" element={<ProtectedRoute><SOS /></ProtectedRoute>} />
-      <Route path="/gamification" element={<ProtectedRoute><Gamification /></ProtectedRoute>} />
-      <Route path="/protocols" element={<ProtectedRoute><Protocols /></ProtectedRoute>} />
-      <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-      <Route path="/faq" element={<ProtectedRoute><FAQ /></ProtectedRoute>} />
-      <Route path="/ask-ai" element={<ProtectedRoute><AskAI /></ProtectedRoute>} />
+      {/* Public auth routes */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+
+      {/* Protected routes */}
+      <Route path="/" element={<AuthGate>{isOnboarded ? <Navigate to="/dashboard" replace /> : <Index />}</AuthGate>} />
+      <Route path="/onboarding" element={<AuthGate><Onboarding /></AuthGate>} />
+      <Route path="/dashboard" element={<AuthGate><ProtectedRoute><Dashboard /></ProtectedRoute></AuthGate>} />
+      <Route path="/workouts" element={<AuthGate><ProtectedRoute><Workouts /></ProtectedRoute></AuthGate>} />
+      <Route path="/nutrition" element={<AuthGate><ProtectedRoute><Nutrition /></ProtectedRoute></AuthGate>} />
+      <Route path="/progress" element={<AuthGate><ProtectedRoute><Progress /></ProtectedRoute></AuthGate>} />
+      <Route path="/sos" element={<AuthGate><ProtectedRoute><SOS /></ProtectedRoute></AuthGate>} />
+      <Route path="/gamification" element={<AuthGate><ProtectedRoute><Gamification /></ProtectedRoute></AuthGate>} />
+      <Route path="/protocols" element={<AuthGate><ProtectedRoute><Protocols /></ProtectedRoute></AuthGate>} />
+      <Route path="/profile" element={<AuthGate><ProtectedRoute><Profile /></ProtectedRoute></AuthGate>} />
+      <Route path="/faq" element={<AuthGate><ProtectedRoute><FAQ /></ProtectedRoute></AuthGate>} />
+      <Route path="/ask-ai" element={<AuthGate><ProtectedRoute><AskAI /></ProtectedRoute></AuthGate>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
@@ -50,13 +74,15 @@ const AppRoutes = () => {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <UserProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-      </UserProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <UserProvider>
+            <Toaster />
+            <Sonner />
+            <AppRoutes />
+          </UserProvider>
+        </AuthProvider>
+      </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
 );

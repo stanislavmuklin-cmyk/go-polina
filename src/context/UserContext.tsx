@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { useAuth } from "@/context/AuthContext";
 
 export interface UserProfile {
   name: string;
@@ -67,22 +68,36 @@ export const useUser = () => {
   return ctx;
 };
 
+function storageKey(userId: string | undefined, key: string) {
+  return userId ? `${key}_${userId}` : key;
+}
+
 export const UserProvider = ({ children }: { children: ReactNode }) => {
+  const { user } = useAuth();
+  const uid = user?.id;
+
   const [profile, setProfile] = useState<UserProfile>(() => {
-    const saved = localStorage.getItem("wellness_profile");
+    const saved = localStorage.getItem(storageKey(uid, "wellness_profile"));
     return saved ? { ...defaultProfile, ...JSON.parse(saved) } : defaultProfile;
   });
   const [isOnboarded, setIsOnboarded] = useState(() => {
-    return localStorage.getItem("wellness_onboarded") === "true";
+    return localStorage.getItem(storageKey(uid, "wellness_onboarded")) === "true";
   });
 
+  // Reload profile when user changes (login/logout)
   useEffect(() => {
-    localStorage.setItem("wellness_profile", JSON.stringify(profile));
-  }, [profile]);
+    const saved = localStorage.getItem(storageKey(uid, "wellness_profile"));
+    setProfile(saved ? { ...defaultProfile, ...JSON.parse(saved) } : defaultProfile);
+    setIsOnboarded(localStorage.getItem(storageKey(uid, "wellness_onboarded")) === "true");
+  }, [uid]);
 
   useEffect(() => {
-    localStorage.setItem("wellness_onboarded", String(isOnboarded));
-  }, [isOnboarded]);
+    localStorage.setItem(storageKey(uid, "wellness_profile"), JSON.stringify(profile));
+  }, [profile, uid]);
+
+  useEffect(() => {
+    localStorage.setItem(storageKey(uid, "wellness_onboarded"), String(isOnboarded));
+  }, [isOnboarded, uid]);
 
   const updateProfile = (partial: Partial<UserProfile>) => {
     setProfile((prev) => ({ ...prev, ...partial }));
