@@ -4,6 +4,7 @@ import { useUser } from "@/context/UserContext";
 import { Dumbbell, Home, Building2 } from "lucide-react";
 import { findTodayIndex, getTodayRussian } from "@/lib/dayHelper";
 import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 
 interface WorkoutDay {
   day: string;
@@ -23,17 +24,41 @@ export function TodayWorkoutDialog({ open, onOpenChange }: Props) {
 
   useEffect(() => {
     if (!open) return;
-    const cacheKey = `workouts_${profile.fitnessLevel}_${location}_${profile.goal}`;
-    const cached = localStorage.getItem(cacheKey);
-    if (cached) {
-      try {
-        const days: WorkoutDay[] = JSON.parse(cached);
+
+    const load = async () => {
+      // Try admin workouts first
+      const { data } = await supabase
+        .from("admin_workouts")
+        .select("*")
+        .eq("location", location)
+        .order("sort_order");
+
+      if (data && data.length > 0) {
+        const days: WorkoutDay[] = data.map((r: any) => ({
+          day: r.day,
+          type: r.type,
+          exercises: r.exercises as unknown as { name: string; sets: string }[],
+        }));
         const idx = findTodayIndex(days);
         setTodayWorkout(days[idx] || null);
-      } catch { setTodayWorkout(null); }
-    } else {
-      setTodayWorkout(null);
-    }
+        return;
+      }
+
+      // Fallback to localStorage
+      const cacheKey = `workouts_${profile.fitnessLevel}_${location}_${profile.goal}`;
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        try {
+          const days: WorkoutDay[] = JSON.parse(cached);
+          const idx = findTodayIndex(days);
+          setTodayWorkout(days[idx] || null);
+        } catch { setTodayWorkout(null); }
+      } else {
+        setTodayWorkout(null);
+      }
+    };
+
+    load();
   }, [open, location, profile.fitnessLevel, profile.goal]);
 
   const switchLocation = (loc: "gym" | "home") => setLocation(loc);
