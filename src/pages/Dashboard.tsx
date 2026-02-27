@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { useUser } from "@/context/UserContext";
-import { Droplets, Dumbbell, Apple, Pill, TrendingUp, Flame, Target, Zap } from "lucide-react";
+import { Droplets, Dumbbell, Apple, Pill, TrendingUp, Flame, Target, Zap, ClipboardCheck } from "lucide-react";
+import { Link } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 
 const goalLabels: Record<string, string> = {
@@ -131,6 +132,21 @@ export default function Dashboard() {
           >
             + Стакан воды
           </button>
+        </motion.div>
+
+        {/* Submit Report CTA */}
+        <motion.div {...anim} transition={{ delay: 0.22 }}>
+          <Link to="/progress#report"
+            className="flex items-center gap-4 p-4 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-soft"
+          >
+            <div className="w-10 h-10 rounded-full bg-primary-foreground/20 flex items-center justify-center">
+              <ClipboardCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold">Сдать отчёт</p>
+              <p className="text-xs opacity-80">Записать вес, энергию и замеры</p>
+            </div>
+          </Link>
         </motion.div>
 
         {/* Today's plan */}
