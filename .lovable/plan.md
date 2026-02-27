@@ -1,48 +1,71 @@
 
 
-# Plan: Report Panel with AI Analysis
+# Plan: Two Report Types + Rename XP to "Баллы"
 
 ## Overview
-Replace the current basic "log data" form on the Progress page with a full **Report Panel**. Add a prominent "Submit Report" button on the Dashboard that navigates to the Progress page and auto-scrolls to the report form. Remove the static AI recommendation block -- AI feedback will appear only after submitting a report.
+Split the current single report into **Daily** and **Weekly** reports. Add sleep tracking to daily. Move weight and measurements to weekly. Weekly report triggers AI analysis and awards points. Rename all "XP" references to "баллы" throughout the app.
 
 ## Changes
 
-### 1. Redesign the Report Panel on Progress page (`src/pages/Progress.tsx`)
+### 1. Rename "XP" to "баллы" everywhere
+**Files:** `UserContext.tsx`, `Gamification.tsx`, `Dashboard.tsx`
+- Replace all visible "XP" text with "баллы" (e.g., "+50 XP" becomes "+50 баллов", "45 XP всего" becomes "45 баллов всего")
+- Keep internal variable names (`xp`, `addXP`) unchanged -- only UI labels change
 
-Replace the current simple input grid with a structured report form containing:
+### 2. Add daily report fields to UserContext
+**File:** `UserContext.tsx`
+- Add `lastWeeklyReportDate: string | null` to track when the last weekly report was submitted
+- Add `dailyReports: { date: string; workoutDone: boolean; energy: number; nutrition: number; sleep: number }[]` to store daily entries
 
-- **Weight** (kg) -- number input
-- **Workout completed** -- Yes/No toggle (switch or two buttons)
-- **Energy level** -- slider 1-10 with visual scale
-- **Body measurements** (cm) -- 4 fields: Chest, Waist, Glutes, Thigh
-- **Nutrition satisfaction** -- slider 1-10 with emoji/label indicator (1 = "Ужасно", 10 = "Идеально")
-- **Submit button** -- "Сдать отчёт"
+### 3. Redesign Progress page with two report sections
+**File:** `src/pages/Progress.tsx`
 
-On submit: call the AI edge function with the report data + user profile context, then display the AI recommendation in a card below the form.
+**Summary cards:** Remove "Сон" card, keep "Вес" and "Энергия" only. Remove sleep from chart toggle.
 
-Remove the static "AI Recommendation" block that currently always shows.
+**Daily Report form:**
+- Workout completed (switch)
+- Energy level (slider 1-10)
+- Nutrition satisfaction (slider 1-10)
+- Sleep quality (slider 1-10, new)
+- Submit button: "Отметить день" -- awards points, no AI call
 
-### 2. Add "Submit Report" button on Dashboard (`src/pages/Dashboard.tsx`)
+**Weekly Report form:**
+- Weight (kg input)
+- Body measurements: Chest, Waist, Glutes, Thigh
+- Submit button: "Сдать еженедельный отчёт" -- triggers AI analysis, awards more points
+- Shows date of last weekly report and countdown: "Следующий отчёт: [date]"
+- When 7 days have passed since last report, shows a prompt: "Сдайте еженедельный отчёт!"
+- When not yet time, the submit button is disabled with text like "Доступен через X дней"
 
-Add a visually prominent button/card (e.g., with a `ClipboardCheck` icon) between the water tracker and today's plan sections. Clicking it navigates to `/progress#report` which scrolls to the report section.
+**AI response** appears only after weekly report submission (same as current behavior).
 
-### 3. Update AI generate function (`supabase/functions/ai-generate/index.ts`)
+### 4. Update Dashboard CTA
+**File:** `src/pages/Dashboard.tsx`
+- Change "Сдать отчёт" description to "Ежедневный и еженедельный отчёты"
+- Rename XP label to "баллы"
 
-Add a new type `"report"` that accepts the report data alongside the user profile and returns a personalized AI analysis/recommendation based on the submitted metrics.
+### 5. Update Gamification page labels
+**File:** `src/pages/Gamification.tsx`
+- All "XP" text becomes "баллов" / "баллы"
+- Challenge rewards: "+50 баллов" etc.
 
 ## Technical Details
 
-**Progress page structure:**
-- Add `useRef` for the report section, use `useEffect` to scroll into view when URL hash is `#report`
-- Report state: `{ weight, workoutDone, energy, chest, waist, glutes, thigh, nutritionScore }`
-- On submit: call `generateContent("report", profile, reportData)`, show loading state, then render AI response in a card with `ReactMarkdown`
-- Remove the hardcoded AI recommendation block (lines 90-97)
+**Weekly report date logic:**
+- Store `lastWeeklyReportDate` in UserProfile (persisted via localStorage)
+- Calculate next report date as `lastWeeklyReportDate + 7 days` using `date-fns`
+- If `lastWeeklyReportDate` is null (first time), show "Сдайте первый еженедельный отчёт!"
+- On submit: set `lastWeeklyReportDate` to today's ISO date string
 
-**Dashboard button:**
-- Use `Link` to `/progress#report` with a styled card/button using gradient background
-- Icon: `ClipboardCheck` from lucide-react
-- Label: "Сдать отчёт"
+**Points awarded:**
+- Daily report: +5 баллов
+- Weekly report: +20 баллов
 
-**Edge function update:**
-- Add `"report"` case in the type switch
-- System prompt instructs AI to analyze the report data (weight trend, workout adherence, energy, measurements, nutrition quality) and give a brief, actionable recommendation
+**Progress page layout order:**
+1. Header
+2. Summary cards (weight change, avg energy -- 2 cards instead of 3)
+3. Chart (weight/energy toggle only, no sleep)
+4. Daily report card
+5. Weekly report card (with date info and conditional UI)
+6. AI response (after weekly submit)
+
