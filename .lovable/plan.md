@@ -1,97 +1,157 @@
 
+# Plan: Migration to Database + Rate Limits + Daily Reset + Admin Link Cleanup
 
-# Plan: AI-генерация в админке + изображения к упражнениям + "Прокачать программу" для учеников
-
-## Обзор
-
-Три ключевых улучшения:
-1. В админ-панели добавить кнопку "Сгенерировать с ИИ" для автозаполнения тренировок
-2. К каждому упражнению можно прикрепить изображение (URL), которое ученик видит при нажатии
-3. На странице ученика появится кнопка "Прокачать программу", доступная с 10-го уровня
+## Overview
+Five major changes:
+1. Move all user profile data from localStorage to a `profiles` database table
+2. Remove "Админ" from sidebar navigation -- admin panel accessible only via direct URL `/admin`
+3. Add daily auto-reset of counters (water, completed meals/supplements/workouts)
+4. Rate-limit AI chat to 20 requests/day and meal regeneration to 3/day
+5. Cache `useIsAdmin` result in context to eliminate redundant RPC calls
 
 ---
 
-## 1. Расширение структуры упражнения (изображение)
+## 1. Database: Create `profiles` table
 
-**Файл:** `supabase/migrations/` -- новая миграция не нужна, т.к. `exercises` хранится как JSONB. Просто расширяем формат JSON.
+New migration to create a `profiles` table storing all user data currently in localStorage:
 
-**Формат упражнения** (было `{name, sets}`, станет):
 ```text
-{ name: string, sets: string, image?: string }
+Table: profiles
+- id: uuid (PK, default gen_random_uuid())
+- user_id: uuid (FK -> auth.users, ON DELETE CASCADE, UNIQUE)
+- name: text (default '')
+- gender: text (default 'female')
+- age: integer (default 30)
+- height: integer (default 165)
+- weight: integer (default 65)
+- fitness_level: text (default 'beginner')
+- goal: text (default 'fat-loss')
+- diet_preferences: jsonb (default '[]')
+- diet_type: text (default 'no-restriction')
+- workout_location: text (default 'gym')
+- equipment: jsonb (default '[]')
+- track_cycle: boolean (default false)
+- complaints: text (default '')
+- xp: integer (default 0)
+- level: integer (default 1)
+- streak: integer (default 0)
+- completed_workouts: jsonb (default '[]')
+- water_glasses: integer (default 0)
+- completed_meals: jsonb (default '[]')
+- completed_supplements: jsonb (default '[]')
+- last_weekly_report_date: date (nullable)
+- daily_reports: jsonb (default '[]')
+- is_onboarded: boolean (default false)
+- last_daily_reset: date (nullable)
+- ai_chat_count: integer (default 0)
+- ai_chat_reset_date: date (nullable)
+- meal_regen_count: integer (default 0)
+- meal_regen_reset_date: date (nullable)
+- created_at: timestamptz (default now())
+- updated_at: timestamptz (default now())
+
+RLS:
+- Users can SELECT/UPDATE own row (user_id = auth.uid())
+- Users can INSERT own row (user_id = auth.uid())
+
+Trigger: auto-create profile row on auth.users insert
 ```
 
-Поле `image` -- URL картинки, показывающей технику выполнения.
+---
+
+## 2. Rewrite `UserContext.tsx` -- Database-backed
+
+Replace localStorage with database reads/writes:
+- On mount (when `user` is available), fetch profile from `profiles` table
+- `updateProfile()` writes partial updates to the database via `supabase.from('profiles').update()`
+- Keep local state for UI responsiveness, debounce DB writes
+- `addXP()` updates both local state and DB
+- Daily reset logic: on load, check if `last_daily_reset < today`, if so reset `water_glasses`, `completed_workouts`, `completed_meals`, `completed_supplements` to defaults and set `last_daily_reset = today`
+- Remove all localStorage usage for profile data
 
 ---
 
-## 2. Админ-панель: кнопка "Сгенерировать с ИИ"
+## 3. Remove "Админ" from sidebar (`AppLayout.tsx`)
 
-**Файл:** `src/pages/Admin.tsx`
-
-- Добавить кнопку "Сгенерировать с ИИ" рядом с кнопкой "Сохранить" (или над списком дней)
-- При нажатии вызывается `generateContent("workouts", defaultProfile)` с текущей локацией (зал/дом)
-- Результат AI заполняет все 7 дней в редакторе (admin может отредактировать перед сохранением)
-- Кнопка показывает спиннер во время генерации
+- Remove `useIsAdmin` import and call from `AppLayout`
+- Remove the conditional admin nav item from `allNavItems`
+- Admin panel remains accessible only via direct URL `/admin`
+- This eliminates the RPC call on every page navigation for all users
 
 ---
 
-## 3. Админ-панель: поле изображения для каждого упражнения
+## 4. Optimize `useIsAdmin` -- cache in memory
 
-**Файл:** `src/pages/Admin.tsx`
-
-- В каждой строке упражнения добавить кнопку-иконку (Image) для ввода URL изображения
-- При нажатии открывается небольшой попап/инлайн-поле для ввода URL картинки
-- Если URL задан, иконка подсвечивается (заполнена)
-- Обновить интерфейс Exercise: `{ name: string; sets: string; image?: string }`
+- The hook is now only used in `AdminGate` (App.tsx) and `Workouts.tsx`
+- Add a simple module-level cache so the RPC is called at most once per session per user
+- Clear cache on logout
 
 ---
 
-## 4. Страница ученика: просмотр изображения упражнения
+## 5. Rate Limits
 
-**Файл:** `src/pages/Workouts.tsx`
+### AI Chat (20/day) -- `AskAI.tsx`
+- Before sending, check `profile.ai_chat_count` and `profile.ai_chat_reset_date`
+- If reset date is not today, reset count to 0
+- If count >= 20, show toast "Лимит запросов на сегодня исчерпан (20/20)" and block
+- On successful send, increment count in DB
 
-- Каждое упражнение в списке становится кликабельным
-- При нажатии открывается Dialog с:
-  - Названием упражнения
-  - Изображением (если есть `image` URL)
-  - Подходы/повторения
-- Если изображения нет -- диалог не открывается или показывает только текст
-
----
-
-## 5. Кнопка "Прокачать программу" (уровень 10+)
-
-**Файл:** `src/pages/Workouts.tsx`
-
-- Под заголовком "Тренировки" добавить кнопку "Прокачать программу"
-- Под кнопкой подпись: "Доступно после 10-го уровня"
-- Если `profile.level < 10` -- кнопка неактивна (disabled), серая, с подписью
-- Если `profile.level >= 10` -- кнопка активна, при нажатии:
-  - Вызывает `generateContent("workouts", profile)` с данными пользователя
-  - Генерирует персональный план на основе его целей, уровня и особенностей
-  - Сохраняет в localStorage (перезаписывает админский план для этого пользователя)
-  - Флаг `isAdminPlan` сбрасывается в false, подпись меняется на "Персональный AI-план"
-- Кнопка видна всем пользователям (не только админам)
+### Meal Regeneration (3/day) -- `Nutrition.tsx`
+- Same pattern with `meal_regen_count` and `meal_regen_reset_date`
+- If count >= 3, show toast "Лимит замен блюд на сегодня исчерпан (3/3)" and block
+- On successful regeneration, increment count in DB
+- Display remaining count near the regenerate button
 
 ---
 
-## Технические детали
+## 6. Daily Auto-Reset
 
-### Изменения в файлах:
+On profile load in `UserContext`, check `last_daily_reset`:
+- If it's before today, reset these fields:
+  - `water_glasses` -> 0
+  - `completed_workouts` -> []
+  - `completed_meals` -> []
+  - `completed_supplements` -> []
+  - `ai_chat_count` -> 0
+  - `meal_regen_count` -> 0
+- Update `last_daily_reset` to today
+- This runs once per day on first app load
 
-| Файл | Что меняется |
+---
+
+## 7. Onboarding Migration
+
+Update `Onboarding.tsx`:
+- On `finish()`, insert/upsert profile row to `profiles` table instead of localStorage
+- Set `is_onboarded = true` in the DB
+
+Update `Profile.tsx`:
+- `resetProfile()` updates `is_onboarded = false` in DB instead of `localStorage.clear()`
+- Update privacy notice text (data now stored securely in the cloud)
+
+---
+
+## Files to Change
+
+| File | Changes |
 |---|---|
-| `src/pages/Admin.tsx` | Кнопка AI-генерации, поле image в упражнениях |
-| `src/pages/Workouts.tsx` | Кнопка "Прокачать программу", диалог просмотра упражнения |
-| `src/components/dashboard/TodayWorkoutDialog.tsx` | Поддержка клика на упражнение с изображением |
+| New migration SQL | Create `profiles` table + trigger + RLS |
+| `src/context/UserContext.tsx` | Full rewrite: DB-backed state, daily reset logic |
+| `src/components/AppLayout.tsx` | Remove admin nav item and `useIsAdmin` |
+| `src/hooks/useIsAdmin.ts` | Add per-session caching |
+| `src/pages/AskAI.tsx` | Add 20/day rate limit check |
+| `src/pages/Nutrition.tsx` | Add 3/day meal regen limit |
+| `src/pages/Onboarding.tsx` | Save to DB instead of localStorage |
+| `src/pages/Profile.tsx` | Reset via DB, update privacy text |
+| `src/pages/Dashboard.tsx` | Minor: water/meal counters now auto-reset |
+| `src/pages/Workouts.tsx` | No admin check needed for nav (already only in AdminGate) |
 
-### Хранение изображений:
-- Используем просто URL-ссылки (админ вставляет ссылку на изображение)
-- Не требуется Storage bucket -- картинки хостятся внешне
-- В будущем можно добавить загрузку файлов
+---
 
-### Логика "Прокачать программу":
-- Персонализированный план сохраняется в localStorage под ключом `workouts_{level}_{location}_{goal}`
-- При следующем заходе пользователь видит свой персональный план вместо админского
-- Кнопку можно нажать повторно для перегенерации
+## Technical Notes
 
+- Profile data is loaded once on login, cached in React state for performance
+- DB writes are done on each `updateProfile` call (not debounced, since updates are infrequent user actions)
+- The trigger `handle_new_user_profile` auto-creates a profile row on signup so the profile always exists
+- localStorage keys for AI-generated content (meals, supplements, shopping) remain in localStorage as cache -- these are regenerated content, not user data
+- The existing `handle_new_user_role` trigger for admin auto-assignment remains unchanged
