@@ -38,8 +38,10 @@ interface ShoppingCategory {
 
 const dayNames = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 
+const MAX_MEAL_REGEN_PER_DAY = 3;
+
 export default function Nutrition() {
-  const { profile, addXP } = useUser();
+  const { profile, addXP, updateProfile } = useUser();
   const [activeTab, setActiveTab] = useState<"meals" | "supplements" | "shopping">("meals");
   const [completedMeals, setCompletedMeals] = useState<Set<string>>(new Set());
 
@@ -97,7 +99,17 @@ export default function Nutrition() {
     }
   }, [profile, mealDays]);
 
+  const today = new Date().toISOString().slice(0, 10);
+  const regenCount = profile.mealRegenResetDate === today ? (profile.mealRegenCount ?? 0) : 0;
+  const regenRemaining = MAX_MEAL_REGEN_PER_DAY - regenCount;
+
   const regenerateMeal = useCallback(async (dayIdx: number, mealIdx: number) => {
+    const currentToday = new Date().toISOString().slice(0, 10);
+    const currentCount = profile.mealRegenResetDate === currentToday ? (profile.mealRegenCount ?? 0) : 0;
+    if (currentCount >= MAX_MEAL_REGEN_PER_DAY) {
+      toast.error(`Лимит замен блюд на сегодня исчерпан (${MAX_MEAL_REGEN_PER_DAY}/${MAX_MEAL_REGEN_PER_DAY})`);
+      return;
+    }
     const day = mealDays[dayIdx];
     if (!day) return;
     try {
@@ -116,11 +128,13 @@ export default function Nutrition() {
         setMealDays(updated);
         localStorage.setItem("ai_meals", JSON.stringify(updated));
         toast.success("Блюдо обновлено!");
+        // Increment regen counter
+        updateProfile({ mealRegenCount: currentCount + 1, mealRegenResetDate: currentToday });
       }
     } catch (e: any) {
       toast.error(e.message || "Ошибка обновления");
     }
-  }, [mealDays, profile]);
+  }, [mealDays, profile, updateProfile]);
 
   useEffect(() => {
     const cached = localStorage.getItem("ai_meals");
@@ -190,7 +204,8 @@ export default function Nutrition() {
               ))}
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Замен блюд: {regenRemaining}/{MAX_MEAL_REGEN_PER_DAY}</span>
               <button onClick={() => generateMeals()} disabled={loadingMeals}
                 className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 disabled:opacity-50"
               >
@@ -226,7 +241,9 @@ export default function Nutrition() {
                         </div>
                         <div className="flex items-center gap-2">
                           <button onClick={() => regenerateMeal(selectedDay, idx)}
-                            className="p-1 text-muted-foreground hover:text-primary transition-colors"
+                            disabled={regenRemaining <= 0}
+                            className="p-1 text-muted-foreground hover:text-primary transition-colors disabled:opacity-30"
+                            title={`Осталось замен: ${regenRemaining}`}
                           >
                             <RefreshCw className="w-3.5 h-3.5" />
                           </button>

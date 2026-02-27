@@ -2,6 +2,15 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 
+// Module-level cache to avoid repeated RPC calls per session
+let cachedUserId: string | null = null;
+let cachedResult: boolean = false;
+
+export function clearAdminCache() {
+  cachedUserId = null;
+  cachedResult = false;
+}
+
 export function useIsAdmin() {
   const { user } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
@@ -11,6 +20,14 @@ export function useIsAdmin() {
     if (!user) {
       setIsAdmin(false);
       setLoading(false);
+      clearAdminCache();
+      return;
+    }
+
+    // Use cache if same user
+    if (cachedUserId === user.id) {
+      setIsAdmin(cachedResult);
+      setLoading(false);
       return;
     }
 
@@ -19,7 +36,10 @@ export function useIsAdmin() {
         _user_id: user.id,
         _role: "admin",
       });
-      if (!error) setIsAdmin(!!data);
+      const result = !error && !!data;
+      cachedUserId = user.id;
+      cachedResult = result;
+      setIsAdmin(result);
       setLoading(false);
     };
 

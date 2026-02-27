@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { AppLayout } from "@/components/AppLayout";
 import { useUser } from "@/context/UserContext";
-import { User, LogOut, Settings } from "lucide-react";
+import { User, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const goalLabels: Record<string, string> = {
@@ -12,11 +12,17 @@ const levelLabels: Record<string, string> = {
 };
 
 export default function Profile() {
-  const { profile, setIsOnboarded } = useUser();
+  const { profile, setIsOnboarded, updateProfile } = useUser();
   const navigate = useNavigate();
 
   const resetProfile = () => {
-    localStorage.clear();
+    updateProfile({
+      name: "", gender: "female", age: 30, height: 165, weight: 65,
+      fitnessLevel: "beginner", goal: "fat-loss", dietPreferences: [], dietType: "no-restriction",
+      workoutLocation: "gym", equipment: [], trackCycle: false, complaints: "",
+      xp: 0, level: 1, streak: 0, completedWorkouts: [], waterGlasses: 0,
+      completedMeals: [], completedSupplements: [], dailyReports: [],
+    });
     setIsOnboarded(false);
     navigate("/");
   };
@@ -78,7 +84,7 @@ export default function Profile() {
 
         <div className="bg-muted rounded-xl p-4">
           <p className="text-xs text-muted-foreground">
-            🔒 Ваши данные хранятся локально на устройстве и не передаются третьим лицам.
+            🔒 Ваши данные хранятся в защищённом облаке и не передаются третьим лицам.
           </p>
         </div>
       </div>

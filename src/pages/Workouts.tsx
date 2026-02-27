@@ -1,13 +1,12 @@
 import { motion } from "framer-motion";
 import { AppLayout } from "@/components/AppLayout";
 import { useUser } from "@/context/UserContext";
-import { Check, Dumbbell, RefreshCw, Home, Building2, Sparkles, Lock, X } from "lucide-react";
+import { Check, Dumbbell, RefreshCw, Home, Building2, Sparkles, Lock } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { generateContent } from "@/lib/ai";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface Exercise {
@@ -24,7 +23,6 @@ interface WorkoutDay {
 
 export default function Workouts() {
   const { profile, addXP } = useUser();
-  const { isAdmin } = useIsAdmin();
   const [plan, setPlan] = useState<WorkoutDay[]>([]);
   const [loading, setLoading] = useState(false);
   const [completed, setCompleted] = useState<Set<number>>(new Set());
@@ -155,14 +153,6 @@ export default function Workouts() {
                 {isAdminPlan ? "План от тренера" : `Персональный AI-план · ${profile.fitnessLevel === "beginner" ? "Новичок" : profile.fitnessLevel === "intermediate" ? "Средний" : "Продвинутый"}`}
               </p>
             </div>
-            {isAdmin && (
-              <button onClick={() => generate()} disabled={loading}
-                className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 disabled:opacity-50 transition-colors"
-              >
-                <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-                Обновить
-              </button>
-            )}
           </div>
         </motion.div>
 
