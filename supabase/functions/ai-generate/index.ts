@@ -167,6 +167,20 @@ const toolSchemas: Record<string, any> = {
       additionalProperties: false,
     },
   },
+  report: {
+    name: "generate_report_analysis",
+    description: "Анализ отчёта пользователя и персональная рекомендация",
+    parameters: {
+      type: "object",
+      properties: {
+        summary: { type: "string", description: "Краткий итог по отчёту (2-3 предложения)" },
+        recommendations: { type: "array", items: { type: "string" }, description: "Конкретные рекомендации (3-5 пунктов)" },
+        encouragement: { type: "string", description: "Мотивационное сообщение" },
+      },
+      required: ["summary", "recommendations", "encouragement"],
+      additionalProperties: false,
+    },
+  },
 };
 
 const userPrompts: Record<string, (extra?: any) => string> = {
@@ -180,6 +194,20 @@ const userPrompts: Record<string, (extra?: any) => string> = {
     `Составь список покупок по категориям (белки, овощи, крупы, молочные, фрукты, другое) на основе этого плана питания:\n${JSON.stringify(extra?.mealPlan || "стандартный план")}`,
   sos: (extra) =>
     `Дай персонализированный протокол для ситуации: "${extra?.topic || "общее недомогание"}". Учитывай мой профиль, цель и ограничения. Дай конкретные шаги и рекомендации по добавкам если уместно.`,
+  report: (extra) =>
+    `Проанализируй мой отчёт за сегодня и дай краткую персональную рекомендацию.
+
+Данные отчёта:
+- Вес: ${extra?.weight ? extra.weight + " кг" : "не указан"}
+- Тренировка выполнена: ${extra?.workoutDone ? "да" : "нет"}
+- Уровень энергии: ${extra?.energy || "не указан"}/10
+- Удовлетворённость питанием: ${extra?.nutritionScore || "не указана"}/10
+- Обхват груди: ${extra?.chest ? extra.chest + " см" : "не указан"}
+- Обхват талии: ${extra?.waist ? extra.waist + " см" : "не указан"}
+- Обхват ягодиц: ${extra?.glutes ? extra.glutes + " см" : "не указан"}
+- Обхват бедра: ${extra?.thigh ? extra.thigh + " см" : "не указан"}
+
+Будь кратким и конкретным. Дай 3-5 практических рекомендаций.`,
 };
 
 serve(async (req) => {

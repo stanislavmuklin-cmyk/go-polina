@@ -4,7 +4,7 @@ import type { UserProfile } from "@/context/UserContext";
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
 export async function generateContent(
-  type: "workouts" | "meals" | "supplements" | "shopping" | "sos",
+  type: "workouts" | "meals" | "supplements" | "shopping" | "sos" | "report",
   profile: UserProfile,
   extra?: Record<string, any>
 ) {
