@@ -3,6 +3,10 @@ import { useUser } from "@/context/UserContext";
 import { Droplets, Dumbbell, Apple, Pill, TrendingUp, Flame, Target, Zap, ClipboardCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
+import { useState } from "react";
+import { TodayWorkoutDialog } from "@/components/dashboard/TodayWorkoutDialog";
+import { TodayNutritionDialog } from "@/components/dashboard/TodayNutritionDialog";
+import { TodaySupplementsDialog } from "@/components/dashboard/TodaySupplementsDialog";
 
 const goalLabels: Record<string, string> = {
   "fat-loss": "Похудение", "muscle": "Набор массы", "energy": "Энергия", "skin": "Красота кожи", "anti-stress": "Антистресс"
@@ -38,12 +42,22 @@ export default function Dashboard() {
 
   const waterTarget = 8;
 
+  const [workoutOpen, setWorkoutOpen] = useState(false);
+  const [nutritionOpen, setNutritionOpen] = useState(false);
+  const [supplementsOpen, setSupplementsOpen] = useState(false);
+
   const drinkWater = () => {
     if (profile.waterGlasses < waterTarget) {
       updateProfile({ waterGlasses: profile.waterGlasses + 1 });
       if (profile.waterGlasses + 1 === waterTarget) addXP(3);
     }
   };
+
+  const todayPlanItems = [
+    { icon: Dumbbell, label: "Тренировка", desc: "Силовая · 45 мин", color: "bg-wellness-peach", onClick: () => setWorkoutOpen(true) },
+    { icon: Apple, label: "Питание", desc: `${targetCals} ккал · ${protein}г белка`, color: "bg-wellness-green-light", onClick: () => setNutritionOpen(true) },
+    { icon: Pill, label: "Добавки", desc: "Витамин D · Омега-3 · Магний", color: "bg-wellness-purple-light", onClick: () => setSupplementsOpen(true) },
+  ];
 
   return (
     <AppLayout>
@@ -149,16 +163,12 @@ export default function Dashboard() {
           </Link>
         </motion.div>
 
-        {/* Today's plan */}
+        {/* Today's plan - dialogs instead of navigation */}
         <motion.div {...anim} transition={{ delay: 0.25 }} className="space-y-3">
           <h3 className="text-sm font-semibold text-foreground">Сегодняшний план</h3>
-          {[
-            { icon: Dumbbell, label: "Тренировка", desc: "Силовая · 45 мин", color: "bg-wellness-peach", to: "/workouts" },
-            { icon: Apple, label: "Питание", desc: `${targetCals} ккал · ${protein}г белка`, color: "bg-wellness-green-light", to: "/nutrition" },
-            { icon: Pill, label: "Добавки", desc: "Витамин D · Омега-3 · Магний", color: "bg-wellness-purple-light", to: "/nutrition" },
-          ].map((item) => (
-            <a key={item.label} href={item.to}
-              className={`flex items-center gap-4 p-4 rounded-xl ${item.color} border border-border/50 hover:shadow-soft transition-all`}
+          {todayPlanItems.map((item) => (
+            <button key={item.label} onClick={item.onClick}
+              className={`w-full flex items-center gap-4 p-4 rounded-xl ${item.color} border border-border/50 hover:shadow-soft transition-all text-left`}
             >
               <div className="w-10 h-10 rounded-full bg-card flex items-center justify-center shadow-soft">
                 <item.icon className="w-5 h-5 text-foreground" />
@@ -167,7 +177,7 @@ export default function Dashboard() {
                 <p className="text-sm font-semibold text-foreground">{item.label}</p>
                 <p className="text-xs text-muted-foreground">{item.desc}</p>
               </div>
-            </a>
+            </button>
           ))}
         </motion.div>
 
@@ -184,6 +194,10 @@ export default function Dashboard() {
           </p>
         </motion.div>
       </div>
+
+      <TodayWorkoutDialog open={workoutOpen} onOpenChange={setWorkoutOpen} />
+      <TodayNutritionDialog open={nutritionOpen} onOpenChange={setNutritionOpen} />
+      <TodaySupplementsDialog open={supplementsOpen} onOpenChange={setSupplementsOpen} />
     </AppLayout>
   );
 }

@@ -185,7 +185,7 @@ export default function Nutrition() {
                     selectedDay === i ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {d.dayName || dayNames[i] || `День ${i + 1}`}
+                  {(d.dayName || dayNames[i] || `День ${i + 1}`).split(/[\s(–—-]/)[0]}
                 </button>
               ))}
             </div>
