@@ -25,6 +25,7 @@ export interface UserProfile {
   completedMeals: string[];
   completedSupplements: string[];
   lastWeeklyReportDate: string | null;
+  weeklyReports: { date: string; weight: number | null; chest: number | null; waist: number | null; glutes: number | null; thigh: number | null }[];
   dailyReports: { date: string; workoutDone: boolean; energy: number; nutrition: number; sleep: number; steps: number }[];
   aiChatCount: number;
   aiChatResetDate: string | null;
@@ -54,6 +55,7 @@ const defaultProfile: UserProfile = {
   completedMeals: [],
   completedSupplements: [],
   lastWeeklyReportDate: null,
+  weeklyReports: [],
   dailyReports: [],
   aiChatCount: 0,
   aiChatResetDate: null,
@@ -92,6 +94,7 @@ function toDbRow(p: Partial<UserProfile>): Record<string, any> {
     completedMeals: "completed_meals",
     completedSupplements: "completed_supplements",
     lastWeeklyReportDate: "last_weekly_report_date",
+    weeklyReports: "weekly_reports",
     dailyReports: "daily_reports",
     aiChatCount: "ai_chat_count",
     aiChatResetDate: "ai_chat_reset_date",
@@ -129,6 +132,7 @@ function fromDbRow(row: any): UserProfile {
     completedMeals: row.completed_meals ?? [],
     completedSupplements: row.completed_supplements ?? [],
     lastWeeklyReportDate: row.last_weekly_report_date ?? null,
+    weeklyReports: row.weekly_reports ?? [],
     dailyReports: row.daily_reports ?? [],
     aiChatCount: row.ai_chat_count ?? 0,
     aiChatResetDate: row.ai_chat_reset_date ?? null,
