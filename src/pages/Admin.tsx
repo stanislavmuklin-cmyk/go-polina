@@ -533,6 +533,17 @@ export default function Admin() {
             <ShowcaseTab />
           </div>
         );
+
+      case "challenges":
+        return (
+          <div className="space-y-4">
+            <div>
+              <h2 className="font-display text-xl font-bold text-foreground">Челленджи</h2>
+              <p className="text-sm text-muted-foreground mt-1">Управление челленджами клуба</p>
+            </div>
+            <ChallengesTab />
+          </div>
+        );
     }
   };
 
