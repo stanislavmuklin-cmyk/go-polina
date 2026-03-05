@@ -56,6 +56,7 @@ export default function Admin() {
 
   // Telegram members
   const [members, setMembers] = useState<any[]>([]);
+  const [allProfiles, setAllProfiles] = useState<any[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
   const [newTelegramId, setNewTelegramId] = useState("");
   const [newUsername, setNewUsername] = useState("");
@@ -103,8 +104,12 @@ export default function Admin() {
 
   const loadMembers = useCallback(async () => {
     setMembersLoading(true);
-    const { data } = await supabase.from("telegram_members").select("*").order("activated_at", { ascending: false });
-    if (data) setMembers(data);
+    const [{ data: tgData }, { data: profileData }] = await Promise.all([
+      supabase.from("telegram_members").select("*").order("activated_at", { ascending: false }),
+      supabase.from("profiles").select("user_id, name, level, xp, goal, created_at"),
+    ]);
+    if (tgData) setMembers(tgData);
+    if (profileData) setAllProfiles(profileData);
     setMembersLoading(false);
   }, []);
 
