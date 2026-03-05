@@ -74,6 +74,19 @@ const AdminGate = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+const RootRedirect = () => {
+  const { user, loading } = useAuth();
+  const { isOnboarded, profileLoading } = useUser();
+  if (loading || (user && profileLoading)) return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+    </div>
+  );
+  if (!user) return <Index />;
+  if (isOnboarded) return <Navigate to="/dashboard" replace />;
+  return <Navigate to="/onboarding" replace />;
+};
+
 const AppRoutes = () => {
   const { isOnboarded, profileLoading } = useUser();
   return (
