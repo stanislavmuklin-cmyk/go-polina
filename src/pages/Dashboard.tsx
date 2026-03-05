@@ -81,6 +81,26 @@ export default function Dashboard() {
           </button>
         </motion.div>
 
+        {/* Level / XP / Streak banner */}
+        <motion.div {...anim} transition={{ delay: 0.05 }} className="bg-card rounded-xl p-4 shadow-soft border border-border flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full gradient-primary flex items-center justify-center shrink-0">
+            <span className="text-lg font-bold text-primary-foreground">{profile.level}</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm font-semibold text-foreground">Уровень {profile.level}</span>
+              <span className="text-xs text-muted-foreground">{profile.xp % 100}/100 баллов</span>
+            </div>
+            <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+              <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${profile.xp % 100}%` }} />
+            </div>
+            <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1"><Zap className="w-3.5 h-3.5 text-primary" />{profile.xp} баллов</span>
+              <span className="flex items-center gap-1"><Flame className="w-3.5 h-3.5 text-wellness-gold" />{profile.streak} дней подряд</span>
+            </div>
+          </div>
+        </motion.div>
+
         {/* Stats cards */}
         <motion.div {...anim} transition={{ delay: 0.1 }} className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="bg-card rounded-xl p-4 shadow-soft border border-border">
