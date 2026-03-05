@@ -74,8 +74,20 @@ const AdminGate = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-const AppRoutes = () => {
+const RootRedirect = () => {
+  const { user, loading } = useAuth();
   const { isOnboarded, profileLoading } = useUser();
+  if (loading || (user && profileLoading)) return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+    </div>
+  );
+  if (!user) return <Index />;
+  if (isOnboarded) return <Navigate to="/dashboard" replace />;
+  return <Navigate to="/onboarding" replace />;
+};
+
+const AppRoutes = () => {
   return (
     <Routes>
       {/* Public auth routes */}
@@ -85,7 +97,7 @@ const AppRoutes = () => {
       <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* Protected routes */}
-      <Route path="/" element={<AuthGate>{profileLoading ? <div className="min-h-screen bg-background flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div> : isOnboarded ? <Navigate to="/dashboard" replace /> : <Index />}</AuthGate>} />
+      <Route path="/" element={<RootRedirect />} />
       <Route path="/onboarding" element={<AuthGate><OnboardingGate><Onboarding /></OnboardingGate></AuthGate>} />
       <Route path="/dashboard" element={<AuthGate><ProtectedRoute><Dashboard /></ProtectedRoute></AuthGate>} />
       <Route path="/workouts" element={<AuthGate><ProtectedRoute><Workouts /></ProtectedRoute></AuthGate>} />
