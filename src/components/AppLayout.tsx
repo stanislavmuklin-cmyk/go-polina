@@ -111,6 +111,20 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                   );
                 })}
               </nav>
+              <div className="border-t border-border pt-2 mt-2">
+                <Link
+                  to="/profile"
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                    location.pathname === "/profile"
+                      ? "bg-accent text-accent-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                  <User className="w-4 h-4" />
+                  Профиль
+                </Link>
+              </div>
             </motion.aside>
           </>
         )}
