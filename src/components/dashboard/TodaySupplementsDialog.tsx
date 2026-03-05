@@ -53,6 +53,11 @@ export function TodaySupplementsDialog({ open, onOpenChange }: Props) {
                 <p className="text-xs text-muted-foreground">{s.reason}</p>
               </div>
             ))}
+            <div className="flex items-start gap-2 bg-muted rounded-xl p-3 border border-border/50 mt-2">
+              <p className="text-xs text-muted-foreground">
+                ⚠️ Информация о добавках носит ознакомительный характер, не является медицинской рекомендацией и не заменяет консультацию врача. Перед приёмом любых БАД проконсультируйтесь со специалистом.
+              </p>
+            </div>
           </div>
         ) : (
           <div className="text-center py-8 space-y-2">
