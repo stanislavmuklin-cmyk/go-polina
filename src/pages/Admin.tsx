@@ -11,6 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { generateContent } from "@/lib/ai";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ShowcaseTab } from "@/components/admin/ShowcaseTab";
+import { ChallengesTab } from "@/components/admin/ChallengesTab";
+import { Badge } from "@/components/ui/badge";
 
 const DAYS = [
   { name: "Пн", sort: 0 },
