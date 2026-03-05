@@ -216,35 +216,18 @@ export default function Onboarding() {
               <div className="space-y-6">
                 <div>
                   <h2 className="font-display text-2xl font-bold text-foreground">Питание</h2>
-                  <p className="text-muted-foreground mt-1">Выберите подход к питанию</p>
+                  <p className="text-muted-foreground mt-1">Укажите ограничения, если есть</p>
                 </div>
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-2 block">Тип диеты</label>
-                    <div className="grid gap-2">
-                      {dietTypes.map((dt) => (
-                        <button key={dt.value} onClick={() => setDietType(dt.value)}
-                          className={`flex items-center gap-3 p-3 rounded-xl text-left transition-all border ${
-                            dietType === dt.value ? "border-primary bg-accent shadow-soft" : "border-border hover:border-primary/30"
-                          }`}
-                        >
-                          <span className="text-lg">{dt.emoji}</span>
-                          <span className="text-sm font-medium text-foreground">{dt.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-2 block">Ограничения и аллергии</label>
-                    <div className="flex flex-wrap gap-2">
-                      {dietOptions.map((d) => (
-                        <button key={d} onClick={() => toggleDiet(d)}
-                          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
-                            dietPreferences.includes(d) ? "border-primary bg-accent text-accent-foreground" : "border-border text-muted-foreground hover:border-primary/30"
-                          }`}
-                        >{d}</button>
-                      ))}
-                    </div>
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-2 block">Ограничения и аллергии</label>
+                  <div className="flex flex-wrap gap-2">
+                    {dietOptions.map((d) => (
+                      <button key={d} onClick={() => toggleDiet(d)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
+                          dietPreferences.includes(d) ? "border-primary bg-accent text-accent-foreground" : "border-border text-muted-foreground hover:border-primary/30"
+                        }`}
+                      >{d}</button>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -262,10 +245,21 @@ export default function Onboarding() {
                   placeholder="Усталость, вздутие, проблемы со сном..."
                   className="w-full h-32 rounded-xl border border-border bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-ring"
                 />
-                <div className="bg-muted rounded-xl p-4">
-                  <p className="text-xs text-muted-foreground">
-                    💡 В дальнейшем вы сможете загрузить результаты анализов (PDF/фото) в личном кабинете.
-                  </p>
+                <div className="space-y-3 pt-2">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input type="checkbox" checked={consentMedical} onChange={(e) => setConsentMedical(e.target.checked)}
+                      className="w-4 h-4 rounded border-border text-primary focus:ring-primary mt-0.5 shrink-0" />
+                    <span className="text-xs text-muted-foreground leading-relaxed">
+                      Я понимаю, что рекомендации носят ознакомительный характер, не являются медицинской рекомендацией и не заменяют консультацию врача.
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input type="checkbox" checked={consentData} onChange={(e) => setConsentData(e.target.checked)}
+                      className="w-4 h-4 rounded border-border text-primary focus:ring-primary mt-0.5 shrink-0" />
+                    <span className="text-xs text-muted-foreground leading-relaxed">
+                      Я даю согласие на обработку введённых данных для персонализации рекомендаций.
+                    </span>
+                  </label>
                 </div>
               </div>
             )}
@@ -284,7 +278,7 @@ export default function Onboarding() {
               Далее <ArrowRight className="w-4 h-4" />
             </Button>
           ) : (
-            <Button onClick={finish} className="gap-2">
+            <Button onClick={finish} disabled={!consentMedical || !consentData} className="gap-2">
               <Sparkles className="w-4 h-4" /> Начать
             </Button>
           )}
