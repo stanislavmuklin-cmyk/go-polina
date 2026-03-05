@@ -1,12 +1,13 @@
 import { motion } from "framer-motion";
 import { useUser } from "@/context/UserContext";
-import { Droplets, Dumbbell, Apple, Pill, TrendingUp, Flame, Target, Zap, ClipboardCheck } from "lucide-react";
+import { Droplets, Dumbbell, Apple, Pill, TrendingUp, Flame, Target, Zap, ClipboardCheck, CircleHelp } from "lucide-react";
 import { Link } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { useState } from "react";
 import { TodayWorkoutDialog } from "@/components/dashboard/TodayWorkoutDialog";
 import { TodayNutritionDialog } from "@/components/dashboard/TodayNutritionDialog";
 import { TodaySupplementsDialog } from "@/components/dashboard/TodaySupplementsDialog";
+import { OnboardingTour } from "@/components/OnboardingTour";
 
 const goalLabels: Record<string, string> = {
   "fat-loss": "Похудение", "muscle": "Набор массы", "energy": "Энергия", "skin": "Красота кожи", "anti-stress": "Антистресс"
@@ -45,6 +46,7 @@ export default function Dashboard() {
   const [workoutOpen, setWorkoutOpen] = useState(false);
   const [nutritionOpen, setNutritionOpen] = useState(false);
   const [supplementsOpen, setSupplementsOpen] = useState(false);
+  const [tourActive, setTourActive] = useState(false);
 
   const drinkWater = () => {
     if (profile.waterGlasses < waterTarget) {
@@ -63,11 +65,20 @@ export default function Dashboard() {
     <AppLayout>
       <div className="space-y-6">
         {/* Greeting */}
-        <motion.div {...anim} transition={{ delay: 0 }}>
-          <h1 className="font-display text-2xl md:text-3xl font-bold text-foreground">
-            Привет, {profile.name} 👋
-          </h1>
-          <p className="text-muted-foreground mt-1">Ваш персональный план на сегодня</p>
+        <motion.div {...anim} transition={{ delay: 0 }} className="flex items-start justify-between">
+          <div>
+            <h1 className="font-display text-2xl md:text-3xl font-bold text-foreground">
+              Привет, {profile.name} 👋
+            </h1>
+            <p className="text-muted-foreground mt-1">Ваш персональный план на сегодня</p>
+          </div>
+          <button
+            onClick={() => setTourActive(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors text-xs font-medium shrink-0 mt-1"
+          >
+            <CircleHelp className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Как пользоваться</span>
+          </button>
         </motion.div>
 
         {/* Stats cards */}
@@ -149,7 +160,7 @@ export default function Dashboard() {
         </motion.div>
 
         {/* Submit Report CTA */}
-        <motion.div {...anim} transition={{ delay: 0.22 }}>
+        <motion.div {...anim} transition={{ delay: 0.22 }} data-tour="submit-report">
           <Link to="/progress#report"
             className="flex items-center gap-4 p-4 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-soft"
           >
@@ -164,7 +175,7 @@ export default function Dashboard() {
         </motion.div>
 
         {/* Today's plan - dialogs instead of navigation */}
-        <motion.div {...anim} transition={{ delay: 0.25 }} className="space-y-3">
+        <motion.div {...anim} transition={{ delay: 0.25 }} className="space-y-3" data-tour="today-plan">
           <h3 className="text-sm font-semibold text-foreground">Сегодняшний план</h3>
           {todayPlanItems.map((item) => (
             <button key={item.label} onClick={item.onClick}
@@ -198,6 +209,7 @@ export default function Dashboard() {
       <TodayWorkoutDialog open={workoutOpen} onOpenChange={setWorkoutOpen} />
       <TodayNutritionDialog open={nutritionOpen} onOpenChange={setNutritionOpen} />
       <TodaySupplementsDialog open={supplementsOpen} onOpenChange={setSupplementsOpen} />
+      <OnboardingTour active={tourActive} onClose={() => setTourActive(false)} />
     </AppLayout>
   );
 }

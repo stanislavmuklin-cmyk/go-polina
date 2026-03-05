@@ -8,16 +8,16 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useUser } from "@/context/UserContext";
 
 const navItems = [
-  { to: "/dashboard", icon: LayoutDashboard, label: "Панель" },
-  { to: "/workouts", icon: Dumbbell, label: "Тренировки" },
-  { to: "/nutrition", icon: Apple, label: "Питание" },
-  { to: "/progress", icon: TrendingUp, label: "Прогресс" },
-  { to: "/sos", icon: Zap, label: "SOS" },
-  { to: "/gamification", icon: Trophy, label: "Достижения" },
-  { to: "/showcase", icon: Store, label: "Витрина" },
-  { to: "/challenges", icon: Swords, label: "Челленджи" },
-  { to: "/ask-ai", icon: MessageCircle, label: "AI-агент" },
-  { to: "/faq", icon: HelpCircle, label: "FAQ" },
+  { to: "/dashboard", icon: LayoutDashboard, label: "Панель", tourId: "nav-dashboard" },
+  { to: "/workouts", icon: Dumbbell, label: "Тренировки", tourId: "nav-workouts" },
+  { to: "/nutrition", icon: Apple, label: "Питание", tourId: "nav-nutrition" },
+  { to: "/progress", icon: TrendingUp, label: "Прогресс", tourId: "nav-progress" },
+  { to: "/sos", icon: Zap, label: "SOS", tourId: "nav-sos" },
+  { to: "/gamification", icon: Trophy, label: "Достижения", tourId: "nav-gamification" },
+  { to: "/showcase", icon: Store, label: "Витрина", tourId: "nav-showcase" },
+  { to: "/challenges", icon: Swords, label: "Челленджи", tourId: "nav-challenges" },
+  { to: "/ask-ai", icon: MessageCircle, label: "AI-агент", tourId: "nav-ask-ai" },
+  { to: "/faq", icon: HelpCircle, label: "FAQ", tourId: "nav-faq" },
 ];
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
@@ -40,6 +40,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
               <Link
                 key={item.to}
                 to={item.to}
+                data-tour={item.tourId}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
                   active
                     ? "bg-accent text-accent-foreground"
@@ -55,6 +56,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
         <div className="border-t border-border pt-2 mt-2">
           <Link
             to="/profile"
+            data-tour="nav-profile"
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
               location.pathname === "/profile"
                 ? "bg-accent text-accent-foreground"
