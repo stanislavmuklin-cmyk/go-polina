@@ -1,20 +1,51 @@
 
 
-## Fix: Redirect onboarded users past onboarding
+## Диагностика проблемы
 
-### Problem
-The `/onboarding` route has no guard checking if the user already completed onboarding. When a returning user lands there (or gets redirected), they see "Добро пожаловать" again instead of going straight to the dashboard.
+Технически всё настроено правильно: клиент использует `persistSession: true` и `localStorage` для хранения сессии. Сессия **должна** сохраняться между перезагрузками.
 
-### Solution
-Wrap the `/onboarding` route with a check: if `isOnboarded === true`, redirect to `/dashboard`.
+Однако есть **два вероятных источника проблемы**:
 
-### Changes
+### 1. Telegram Mini App не сохраняет сессию
+Если приложение открывается через Telegram, то Telegram WebView может очищать `localStorage` между запусками. При каждом открытии Mini App сессия теряется, и `telegram-auth` вызывается заново — это нормальное поведение для Telegram и не требует исправлений (там авторизация автоматическая).
 
-**`src/App.tsx`** (1 change):
-- Change the `/onboarding` route from:
-  ```
-  <Route path="/onboarding" element={<AuthGate><Onboarding /></AuthGate>} />
-  ```
-  to use a new `OnboardingGate` that checks `isOnboarded` and `profileLoading` from `useUser()`. If already onboarded, redirect to `/dashboard`. If still loading, show spinner. Otherwise, render `<Onboarding />`.
+### 2. Маршрут `/` показывает лендинг вместо редиректа
+Главная проблема — маршрут `/` в `App.tsx`. Сейчас логика такая:
+- Если пользователь авторизован И онбордирован → редирект на `/dashboard` ✓
+- Если пользователь авторизован, но НЕ онбордирован → показывает **Index** (лендинг с кнопкой "Начать")
 
-This is a minimal change (~10 lines) that follows the existing pattern of `ProtectedRoute` and `AdminGate`.
+Это значит, что если пользователь заходит на корень сайта `/`, а профиль ещё загружается (`profileLoading`), он видит спиннер, а затем лендинг на долю секунды — это может восприниматься как "разлогинило".
+
+Также: если пользователь уже онбордирован и заходит по прямому URL `/`, всё работает — но он может заходить не по `/dashboard`, а именно по `/`.
+
+### Решение
+
+**Файл: `src/App.tsx`** — одно изменение в маршруте `/`:
+
+Сейчас:
+```tsx
+<Route path="/" element={
+  <AuthGate>
+    {profileLoading ? <Spinner /> : isOnboarded ? <Navigate to="/dashboard" /> : <Index />}
+  </AuthGate>
+} />
+```
+
+Нужно: если пользователь авторизован и онбордирован — **всегда** редирект на `/dashboard`. Если авторизован, но не онбордирован — редирект на `/onboarding` (а не показ лендинга). Лендинг `<Index />` показывать только **неавторизованным** пользователям.
+
+Логика:
+```
+/ → если не авторизован → Index (лендинг)
+  → если авторизован + profileLoading → спиннер
+  → если авторизован + онбордирован → /dashboard
+  → если авторизован + не онбордирован → /onboarding
+```
+
+Это гарантирует, что зарегистрированный пользователь при любом заходе попадает сразу на дашборд, без промежуточных экранов.
+
+### Что НЕ затрагивается
+- Логика авторизации (`AuthContext`) — не меняется
+- Онбординг — не меняется
+- Остальные маршруты — не меняются
+- Telegram-авторизация — не меняется
+
