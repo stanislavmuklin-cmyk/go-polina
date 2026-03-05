@@ -225,7 +225,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
     load();
     return () => { cancelled = true; };
-  }, [uid]);
+  }, [uid, authLoading]);
 
   const updateProfile = useCallback((partial: Partial<UserProfile>) => {
     setProfile((prev) => {
