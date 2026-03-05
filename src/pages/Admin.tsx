@@ -1,13 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
-import { AppLayout } from "@/components/AppLayout";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AdminLayout, AdminSection } from "@/components/admin/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Building2, Home, UserPlus, Shield, Loader2, Sparkles, ImageIcon, Users, CheckCircle, XCircle, Store } from "lucide-react";
+import { Plus, Trash2, Save, Building2, Home, UserPlus, Shield, Loader2, Sparkles, ImageIcon, Users, CheckCircle, XCircle } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { generateContent } from "@/lib/ai";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -41,6 +40,7 @@ const emptyWeek = (): DayPlan[] =>
 
 export default function Admin() {
   const { user } = useAuth();
+  const [activeSection, setActiveSection] = useState<AdminSection>("workouts");
   const [location, setLocation] = useState<"gym" | "home">("gym");
   const [week, setWeek] = useState<DayPlan[]>(emptyWeek());
   const [saving, setSaving] = useState(false);
@@ -261,23 +261,15 @@ export default function Admin() {
     }
   };
 
-  return (
-    <AppLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="font-display text-2xl font-bold text-foreground">Админ-панель</h1>
-          <p className="text-muted-foreground mt-1">Управление контентом приложения</p>
-        </div>
-
-        <Tabs defaultValue="workouts">
-          <TabsList className="w-full">
-            <TabsTrigger value="workouts" className="flex-1">Тренировки</TabsTrigger>
-            <TabsTrigger value="members" className="flex-1">Участники</TabsTrigger>
-            <TabsTrigger value="admins" className="flex-1">Админы</TabsTrigger>
-            <TabsTrigger value="showcase" className="flex-1">Витрина</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="workouts" className="space-y-4 mt-4">
+  const renderContent = () => {
+    switch (activeSection) {
+      case "workouts":
+        return (
+          <div className="space-y-4">
+            <div>
+              <h2 className="font-display text-xl font-bold text-foreground">Тренировки</h2>
+              <p className="text-sm text-muted-foreground mt-1">Управление программами тренировок</p>
+            </div>
             {/* Location toggle */}
             <div className="flex gap-2">
               {([["gym", "Зал", Building2], ["home", "Дома", Home]] as const).map(
@@ -296,26 +288,12 @@ export default function Admin() {
                 )
               )}
             </div>
-
-            {/* AI Generate button */}
-            <Button
-              variant="outline"
-              onClick={generateWithAI}
-              disabled={generating || loadingWorkouts}
-              className="w-full"
-            >
-              {generating ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              ) : (
-                <Sparkles className="w-4 h-4 mr-2" />
-              )}
+            <Button variant="outline" onClick={generateWithAI} disabled={generating || loadingWorkouts} className="w-full">
+              {generating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />}
               Сгенерировать с ИИ
             </Button>
-
             {loadingWorkouts ? (
-              <div className="flex justify-center py-12">
-                <Loader2 className="w-6 h-6 animate-spin text-primary" />
-              </div>
+              <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
             ) : (
               <>
                 {week.map((day, dayIdx) => (
@@ -323,87 +301,53 @@ export default function Admin() {
                     <CardHeader className="pb-3">
                       <CardTitle className="text-base flex items-center justify-between">
                         <span>{day.day}</span>
-                        <Input
-                          value={day.type}
-                          onChange={(e) => updateDay(dayIdx, "type", e.target.value)}
-                          placeholder="Тип (Силовая, Кардио, Отдых...)"
-                          className="max-w-[250px] h-8 text-sm"
-                        />
+                        <Input value={day.type} onChange={(e) => updateDay(dayIdx, "type", e.target.value)} placeholder="Тип (Силовая, Кардио, Отдых...)" className="max-w-[250px] h-8 text-sm" />
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
                       {day.exercises.map((ex, exIdx) => (
                         <div key={exIdx} className="flex gap-2 items-center">
-                          <Input
-                            value={ex.name}
-                            onChange={(e) => updateExercise(dayIdx, exIdx, "name", e.target.value)}
-                            placeholder="Упражнение"
-                            className="flex-1 h-8 text-sm"
-                          />
-                          <Input
-                            value={ex.sets}
-                            onChange={(e) => updateExercise(dayIdx, exIdx, "sets", e.target.value)}
-                            placeholder="3×12"
-                            className="w-24 h-8 text-sm"
-                          />
+                          <Input value={ex.name} onChange={(e) => updateExercise(dayIdx, exIdx, "name", e.target.value)} placeholder="Упражнение" className="flex-1 h-8 text-sm" />
+                          <Input value={ex.sets} onChange={(e) => updateExercise(dayIdx, exIdx, "sets", e.target.value)} placeholder="3×12" className="w-24 h-8 text-sm" />
                           <Popover>
                             <PopoverTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className={`h-8 w-8 shrink-0 ${ex.image ? "text-primary" : "text-muted-foreground"}`}
-                              >
+                              <Button variant="ghost" size="icon" className={`h-8 w-8 shrink-0 ${ex.image ? "text-primary" : "text-muted-foreground"}`}>
                                 <ImageIcon className="w-3.5 h-3.5" />
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-72 p-3" side="top">
                               <p className="text-xs text-muted-foreground mb-2">URL изображения</p>
-                              <Input
-                                value={ex.image || ""}
-                                onChange={(e) => updateExercise(dayIdx, exIdx, "image", e.target.value)}
-                                placeholder="https://example.com/image.jpg"
-                                className="h-8 text-sm"
-                              />
-                              {ex.image && (
-                                <img src={ex.image} alt={ex.name} className="mt-2 rounded-lg w-full h-32 object-cover" />
-                              )}
+                              <Input value={ex.image || ""} onChange={(e) => updateExercise(dayIdx, exIdx, "image", e.target.value)} placeholder="https://example.com/image.jpg" className="h-8 text-sm" />
+                              {ex.image && <img src={ex.image} alt={ex.name} className="mt-2 rounded-lg w-full h-32 object-cover" />}
                             </PopoverContent>
                           </Popover>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 shrink-0"
-                            onClick={() => removeExercise(dayIdx, exIdx)}
-                          >
+                          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => removeExercise(dayIdx, exIdx)}>
                             <Trash2 className="w-3.5 h-3.5 text-destructive" />
                           </Button>
                         </div>
                       ))}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full mt-1"
-                        onClick={() => addExercise(dayIdx)}
-                      >
+                      <Button variant="outline" size="sm" className="w-full mt-1" onClick={() => addExercise(dayIdx)}>
                         <Plus className="w-3.5 h-3.5 mr-1" /> Добавить упражнение
                       </Button>
                     </CardContent>
                   </Card>
                 ))}
-
                 <Button onClick={saveWorkouts} disabled={saving} className="w-full">
-                  {saving ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  ) : (
-                    <Save className="w-4 h-4 mr-2" />
-                  )}
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
                   Сохранить тренировки
                 </Button>
               </>
             )}
-          </TabsContent>
+          </div>
+        );
 
-          <TabsContent value="members" className="space-y-4 mt-4">
+      case "members":
+        return (
+          <div className="space-y-4">
+            <div>
+              <h2 className="font-display text-xl font-bold text-foreground">Участники</h2>
+              <p className="text-sm text-muted-foreground mt-1">Управление участниками клуба</p>
+            </div>
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
@@ -426,7 +370,6 @@ export default function Admin() {
                 </p>
               </CardContent>
             </Card>
-
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Участники клуба ({members.length})</CardTitle>
@@ -472,9 +415,16 @@ export default function Admin() {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
+          </div>
+        );
 
-          <TabsContent value="admins" className="space-y-4 mt-4">
+      case "admins":
+        return (
+          <div className="space-y-4">
+            <div>
+              <h2 className="font-display text-xl font-bold text-foreground">Администраторы</h2>
+              <p className="text-sm text-muted-foreground mt-1">Управление правами доступа</p>
+            </div>
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Текущие администраторы</CardTitle>
@@ -498,20 +448,13 @@ export default function Admin() {
                 )}
               </CardContent>
             </Card>
-
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Пригласить администратора</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex gap-2">
-                  <Input
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    placeholder="email@example.com"
-                    type="email"
-                    className="flex-1"
-                  />
+                  <Input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="email@example.com" type="email" className="flex-1" />
                   <Button onClick={inviteAdmin} disabled={inviting}>
                     <UserPlus className="w-4 h-4 mr-1" />
                     {inviting ? "…" : "Пригласить"}
@@ -522,13 +465,25 @@ export default function Admin() {
                 </p>
               </CardContent>
             </Card>
-          </TabsContent>
+          </div>
+        );
 
-          <TabsContent value="showcase" className="space-y-4 mt-4">
+      case "showcase":
+        return (
+          <div className="space-y-4">
+            <div>
+              <h2 className="font-display text-xl font-bold text-foreground">Витрина</h2>
+              <p className="text-sm text-muted-foreground mt-1">Управление товарами витрины</p>
+            </div>
             <ShowcaseTab />
-          </TabsContent>
-        </Tabs>
-      </div>
-    </AppLayout>
+          </div>
+        );
+    }
+  };
+
+  return (
+    <AdminLayout activeSection={activeSection} onSectionChange={setActiveSection}>
+      {renderContent()}
+    </AdminLayout>
   );
 }
