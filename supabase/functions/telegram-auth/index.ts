@@ -43,6 +43,27 @@ async function validateTelegramInitData(initData: string, botToken: string): Pro
   return result;
 }
 
+// Check if user is a member of the Telegram channel/group via Bot API
+async function checkTelegramMembership(botToken: string, chatId: string, userId: number): Promise<boolean> {
+  try {
+    const url = `https://api.telegram.org/bot${botToken}/getChatMember?chat_id=${encodeURIComponent(chatId)}&user_id=${userId}`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (!data.ok) {
+      console.error("getChatMember error:", data);
+      return false;
+    }
+
+    const status = data.result?.status;
+    // member, administrator, creator are valid; left, kicked, restricted (with is_member=false) are not
+    return ["member", "administrator", "creator"].includes(status);
+  } catch (err) {
+    console.error("checkTelegramMembership fetch error:", err);
+    return false;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -88,7 +109,46 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Check membership
+    // --- Auto-check membership via Telegram Bot API ---
+    const chatId = Deno.env.get("TELEGRAM_CHAT_ID");
+    let isMemberInChannel = false;
+
+    if (chatId) {
+      isMemberInChannel = await checkTelegramMembership(botToken, chatId, telegramId);
+      console.log(`Telegram membership check: user ${telegramId} in chat ${chatId} = ${isMemberInChannel}`);
+
+      // Sync membership status to telegram_members table
+      if (isMemberInChannel) {
+        // Upsert as active member
+        await supabaseAdmin.from("telegram_members").upsert(
+          {
+            telegram_id: telegramId,
+            is_active: true,
+            activated_at: new Date().toISOString(),
+            deactivated_at: null,
+            telegram_username: username || null,
+            telegram_first_name: firstName || null,
+          },
+          { onConflict: "telegram_id" }
+        );
+      } else {
+        // Check if exists and deactivate
+        const { data: existing } = await supabaseAdmin
+          .from("telegram_members")
+          .select("id, is_active")
+          .eq("telegram_id", telegramId)
+          .single();
+
+        if (existing && existing.is_active) {
+          await supabaseAdmin
+            .from("telegram_members")
+            .update({ is_active: false, deactivated_at: new Date().toISOString() })
+            .eq("telegram_id", telegramId);
+        }
+      }
+    }
+
+    // Now check membership in DB (it was just synced above)
     const { data: member } = await supabaseAdmin
       .from("telegram_members")
       .select("*")
@@ -140,9 +200,6 @@ Deno.serve(async (req) => {
     }
 
     // Generate session tokens
-    // Use signInWithPassword is not possible since we don't know the password.
-    // Instead, generate a magic link and extract the token, or use admin.generateLink
-    // The simplest approach: use admin.generateLink with type "magiclink"
     const email = `tg_${telegramId}@telegram.local`;
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: "magiclink",
@@ -151,16 +208,12 @@ Deno.serve(async (req) => {
 
     if (linkError) throw linkError;
 
-    // The generateLink returns properties with the session info
     const accessToken = linkData.properties?.access_token;
     const refreshToken = linkData.properties?.refresh_token;
 
     if (!accessToken) {
-      // Fallback: if generateLink doesn't give tokens directly, we extract from hashed_token
-      // Actually, generateLink returns the hashed_token which we can use to verify OTP
       const hashedToken = linkData.properties?.hashed_token;
       
-      // Use verifyOtp with the token_hash
       const { data: sessionData, error: otpError } = await supabaseAdmin.auth.verifyOtp({
         token_hash: hashedToken,
         type: "magiclink",
