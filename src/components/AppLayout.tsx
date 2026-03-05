@@ -53,17 +53,6 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
             );
           })}
         </nav>
-        <div className="border-t border-border pt-4 mt-2">
-          <div className="flex items-center gap-3 px-3">
-            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-bold">
-              {profile.name?.[0]?.toUpperCase() || "U"}
-            </div>
-            <div>
-              <p className="text-sm font-medium text-foreground">{profile.name || "Пользователь"}</p>
-              <p className="text-xs text-muted-foreground">Уровень {profile.level} · {profile.xp} XP</p>
-            </div>
-          </div>
-        </div>
       </aside>
 
       {/* Mobile header */}
