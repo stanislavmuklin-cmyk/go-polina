@@ -7,10 +7,11 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-import { Plus, Trash2, Save, Building2, Home, UserPlus, Shield, Loader2, Sparkles, ImageIcon, Users, CheckCircle, XCircle } from "lucide-react";
+import { Plus, Trash2, Save, Building2, Home, UserPlus, Shield, Loader2, Sparkles, ImageIcon, Users, CheckCircle, XCircle, Store } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { generateContent } from "@/lib/ai";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ShowcaseTab } from "@/components/admin/ShowcaseTab";
 
 const DAYS = [
   { name: "Пн", sort: 0 },
@@ -273,6 +274,7 @@ export default function Admin() {
             <TabsTrigger value="workouts" className="flex-1">Тренировки</TabsTrigger>
             <TabsTrigger value="members" className="flex-1">Участники</TabsTrigger>
             <TabsTrigger value="admins" className="flex-1">Админы</TabsTrigger>
+            <TabsTrigger value="showcase" className="flex-1">Витрина</TabsTrigger>
           </TabsList>
 
           <TabsContent value="workouts" className="space-y-4 mt-4">
@@ -520,6 +522,10 @@ export default function Admin() {
                 </p>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="showcase" className="space-y-4 mt-4">
+            <ShowcaseTab />
           </TabsContent>
         </Tabs>
       </div>

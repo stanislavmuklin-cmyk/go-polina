@@ -176,6 +176,45 @@ export type Database = {
         }
         Relationships: []
       }
+      showcase_items: {
+        Row: {
+          button_text: string
+          button_url: string
+          created_at: string
+          description: string
+          id: string
+          image_url: string
+          is_active: boolean
+          sort_order: number
+          title: string
+          updated_by: string | null
+        }
+        Insert: {
+          button_text?: string
+          button_url?: string
+          created_at?: string
+          description?: string
+          id?: string
+          image_url?: string
+          is_active?: boolean
+          sort_order?: number
+          title?: string
+          updated_by?: string | null
+        }
+        Update: {
+          button_text?: string
+          button_url?: string
+          created_at?: string
+          description?: string
+          id?: string
+          image_url?: string
+          is_active?: boolean
+          sort_order?: number
+          title?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       telegram_members: {
         Row: {
           activated_at: string
