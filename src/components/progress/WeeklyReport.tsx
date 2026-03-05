@@ -40,7 +40,22 @@ export default function WeeklyReport() {
       };
       const result = await generateContent("report", profile, reportData);
       setAiResponse(result);
-      updateProfile({ lastWeeklyReportDate: format(today, "yyyy-MM-dd") });
+
+      // Save measurement to history
+      const newEntry = {
+        date: format(today, "yyyy-MM-dd"),
+        weight: reportData.weight,
+        chest: reportData.chest,
+        waist: reportData.waist,
+        glutes: reportData.glutes,
+        thigh: reportData.thigh,
+      };
+      const updatedReports = [...(profile.weeklyReports || []), newEntry];
+
+      updateProfile({
+        lastWeeklyReportDate: format(today, "yyyy-MM-dd"),
+        weeklyReports: updatedReports,
+      });
       addXP(20);
     } catch (err: any) {
       setAiError(err.message || "Ошибка анализа");

@@ -1,50 +1,20 @@
 
 
-## Полная переработка раздела "Прогресс"
+## Fix: Redirect onboarded users past onboarding
 
-### Проблема
-1. Все данные на странице — захардкоженные шаблонные (фейковые -0.8 кг, энергия 7.4).
-2. Еженедельный отчёт НЕ сохраняет историю замеров (вес, объёмы) — данные уходят в AI и теряются.
-3. Нет графиков шагов и сна из ежедневных отчётов.
+### Problem
+The `/onboarding` route has no guard checking if the user already completed onboarding. When a returning user lands there (or gets redirected), they see "Добро пожаловать" again instead of going straight to the dashboard.
 
-### Решение
+### Solution
+Wrap the `/onboarding` route with a check: if `isOnboarded === true`, redirect to `/dashboard`.
 
-#### 1. База данных — новое поле
-Добавить в таблицу `profiles` колонку `weekly_reports` (jsonb, default `[]`).
-Формат: `[{ date, weight, chest, waist, glutes, thigh }, ...]`
+### Changes
 
-#### 2. UserContext — поддержка weeklyReports
-Добавить `weeklyReports` в `UserProfile`, маппинг `weekly_reports` ↔ `weeklyReports`, дефолт `[]`.
+**`src/App.tsx`** (1 change):
+- Change the `/onboarding` route from:
+  ```
+  <Route path="/onboarding" element={<AuthGate><Onboarding /></AuthGate>} />
+  ```
+  to use a new `OnboardingGate` that checks `isOnboarded` and `profileLoading` from `useUser()`. If already onboarded, redirect to `/dashboard`. If still loading, show spinner. Otherwise, render `<Onboarding />`.
 
-#### 3. WeeklyReport — сохранение истории
-При сабмите помимо `lastWeeklyReportDate` сохранять запись в массив `weeklyReports` (добавлять новый объект с датой и всеми замерами).
-
-#### 4. Progress — полная переработка графиков
-
-Удалить весь захардкоженный `weekData`. Заменить на 4 вкладки с реальными данными (recharts `LineChart`/`BarChart`):
-
-**Вкладки (переключатель вверху):**
-- **Вес** — линейный график по данным из `weeklyReports`. Ось X — даты, ось Y — кг.
-- **Объёмы** — мульти-линейный график (грудь, талия, ягодицы, бедро) разными цветами. Чекбоксы для включения/выключения каждой линии. Данные из `weeklyReports`.
-- **Шаги** — столбчатый график по дням из `dailyReports`. Ось X — даты, ось Y — количество.
-- **Сон** — столбчатый график по дням из `dailyReports`. Ось X — даты, ось Y — часы.
-
-**Сводные карточки сверху:**
-- Изменение веса: разница между последним и предпоследним еженедельным отчётом (или "—" если данных нет).
-- Среднее количество шагов за последние 7 дней (или "—").
-
-**Пустое состояние:** если данных нет, показывать сообщение "Сдайте первый отчёт, чтобы увидеть графики".
-
-#### 5. Что НЕ меняется
-- Формы DailyReport и WeeklyReport — остаются как есть (только WeeklyReport дополнительно сохраняет данные).
-- AI-анализ — по-прежнему получает все данные.
-- Все остальные страницы и маршруты.
-
-### Файлы
-| Файл | Действие |
-|---|---|
-| Migration | Добавить `weekly_reports jsonb default '[]'` |
-| `src/context/UserContext.tsx` | Добавить `weeklyReports` в тип и маппинг |
-| `src/components/progress/WeeklyReport.tsx` | Сохранять замеры в `weeklyReports` |
-| `src/pages/Progress.tsx` | Полная переработка — recharts графики, 4 вкладки, реальные данные |
-
+This is a minimal change (~10 lines) that follows the existing pattern of `ProtectedRoute` and `AdminGate`.
