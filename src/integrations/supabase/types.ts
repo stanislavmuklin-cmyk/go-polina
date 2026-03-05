@@ -99,6 +99,7 @@ export type Database = {
           updated_at: string
           user_id: string
           water_glasses: number
+          weekly_reports: Json
           weight: number
           workout_location: string
           xp: number
@@ -133,6 +134,7 @@ export type Database = {
           updated_at?: string
           user_id: string
           water_glasses?: number
+          weekly_reports?: Json
           weight?: number
           workout_location?: string
           xp?: number
@@ -167,6 +169,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
           water_glasses?: number
+          weekly_reports?: Json
           weight?: number
           workout_location?: string
           xp?: number

@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN weekly_reports jsonb NOT NULL DEFAULT '[]'::jsonb;
