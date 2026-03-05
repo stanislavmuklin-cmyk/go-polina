@@ -1,8 +1,16 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { AppLayout } from "@/components/AppLayout";
 import { useUser } from "@/context/UserContext";
-import { User, LogOut } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { User, LogOut, Trash2, RotateCcw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 const goalLabels: Record<string, string> = {
   "fat-loss": "Похудение", "muscle": "Набор массы", "energy": "Энергия", "skin": "Красота кожи", "anti-stress": "Антистресс"
@@ -13,7 +21,9 @@ const levelLabels: Record<string, string> = {
 
 export default function Profile() {
   const { profile, setIsOnboarded, updateProfile } = useUser();
+  const { signOut, user } = useAuth();
   const navigate = useNavigate();
+  const [deleting, setDeleting] = useState(false);
 
   const resetProfile = () => {
     updateProfile({
@@ -25,6 +35,31 @@ export default function Profile() {
     });
     setIsOnboarded(false);
     navigate("/");
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate("/");
+    } catch {
+      toast.error("Ошибка при выходе");
+    }
+  };
+
+  const handleDeleteProfile = async () => {
+    if (!user) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase.from("profiles").delete().eq("user_id", user.id);
+      if (error) throw error;
+      await signOut();
+      navigate("/");
+      toast.success("Профиль удалён");
+    } catch {
+      toast.error("Не удалось удалить профиль");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -41,7 +76,7 @@ export default function Profile() {
             </div>
             <div>
               <h2 className="text-lg font-bold text-foreground">{profile.name}</h2>
-              <p className="text-sm text-muted-foreground">Уровень {profile.level} · {profile.xp} XP</p>
+              <p className="text-sm text-muted-foreground">Уровень {profile.level} · {profile.xp} баллов</p>
             </div>
           </div>
 
@@ -75,11 +110,47 @@ export default function Profile() {
 
         <div className="space-y-2">
           <button onClick={resetProfile}
-            className="w-full flex items-center gap-3 p-4 rounded-xl border border-border bg-card text-sm text-destructive hover:bg-destructive/5 transition-colors"
+            className="w-full flex items-center gap-3 p-4 rounded-xl border border-border bg-card text-sm text-foreground hover:bg-muted transition-colors"
           >
-            <LogOut className="w-4 h-4" />
+            <RotateCcw className="w-4 h-4" />
             Сбросить профиль и пройти анкету заново
           </button>
+
+          <button onClick={handleSignOut}
+            className="w-full flex items-center gap-3 p-4 rounded-xl border border-border bg-card text-sm text-foreground hover:bg-muted transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+            Выйти из аккаунта
+          </button>
+
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button
+                className="w-full flex items-center gap-3 p-4 rounded-xl border border-destructive/30 bg-card text-sm text-destructive hover:bg-destructive/5 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                Удалить профиль
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Удалить профиль?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Это действие необратимо. Все ваши данные, прогресс и достижения будут удалены навсегда.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Отмена</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDeleteProfile}
+                  disabled={deleting}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {deleting ? "Удаление..." : "Удалить навсегда"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
 
         <div className="bg-muted rounded-xl p-4">

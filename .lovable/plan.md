@@ -1,28 +1,20 @@
 
 
-## Доработка профиля и бокового меню
+## Fix: Redirect onboarded users past onboarding
 
-### Что делаем
+### Problem
+The `/onboarding` route has no guard checking if the user already completed onboarding. When a returning user lands there (or gets redirected), they see "Добро пожаловать" again instead of going straight to the dashboard.
 
-1. **AppLayout — убираем блок с аватаром/XP внизу sidebar**, заменяем на ссылку «Профиль» (она уже есть в навигации, просто убираем нижний блок с кругляшком и XP).
+### Solution
+Wrap the `/onboarding` route with a check: if `isOnboarded === true`, redirect to `/dashboard`.
 
-2. **Profile.tsx — переделываем страницу профиля**:
-   - Показываем: имя, уровень, баллы (не XP/HP, а «баллов»)
-   - Информация о профиле (пол, возраст, рост, вес, цель, уровень подготовки)
-   - Кнопка «Сбросить профиль и пройти анкету заново» (уже есть)
-   - Кнопка «Выйти» — вызывает `signOut()` из `useAuth()`
-   - Кнопка «Удалить профиль» — с подтверждением (AlertDialog), удаляет профиль из БД и вызывает `signOut()`
+### Changes
 
-### Файлы
+**`src/App.tsx`** (1 change):
+- Change the `/onboarding` route from:
+  ```
+  <Route path="/onboarding" element={<AuthGate><Onboarding /></AuthGate>} />
+  ```
+  to use a new `OnboardingGate` that checks `isOnboarded` and `profileLoading` from `useUser()`. If already onboarded, redirect to `/dashboard`. If still loading, show spinner. Otherwise, render `<Onboarding />`.
 
-| Файл | Действие |
-|---|---|
-| `src/components/AppLayout.tsx` | Убрать нижний блок с аватаром/уровнем/XP (строки 56-66) |
-| `src/pages/Profile.tsx` | Заменить «XP» на «баллов», добавить кнопки «Выйти» и «Удалить профиль» с AlertDialog |
-
-### Детали
-
-- «Удалить профиль»: удаляет запись из `profiles` (DELETE не разрешён RLS — нужна миграция для добавления DELETE policy), затем `signOut()`. Или можно использовать edge function с service role. Проще добавить RLS policy `users can delete own profile`.
-- Нужна миграция: `CREATE POLICY "Users can delete own profile" ON profiles FOR DELETE USING (user_id = auth.uid());`
-- AlertDialog для подтверждения удаления с текстом предупреждения.
-
+This is a minimal change (~10 lines) that follows the existing pattern of `ProtectedRoute` and `AdminGate`.
