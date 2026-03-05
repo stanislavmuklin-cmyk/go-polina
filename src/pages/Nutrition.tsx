@@ -313,7 +313,7 @@ export default function Nutrition() {
             <div className="flex items-start gap-2 bg-muted rounded-xl p-4 border border-border/50">
               <AlertTriangle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
               <p className="text-xs text-muted-foreground">
-                Информация о добавках не является медицинской рекомендацией. Проконсультируйтесь со специалистом.
+                ⚠️ Информация о добавках носит ознакомительный характер, не является медицинской рекомендацией и не заменяет консультацию врача. Перед приёмом любых БАД проконсультируйтесь со специалистом.
               </p>
             </div>
           </motion.div>
