@@ -22,13 +22,6 @@ const fitnessLevels = [
 
 const dietOptions = ["Веган", "Вегетарианец", "Без глютена", "Без лактозы", "Халяль", "Кето"];
 
-const dietTypes = [
-  { value: "no-restriction", label: "Без ограничений", emoji: "🍽️" },
-  { value: "keto", label: "Кето", emoji: "🥑" },
-  { value: "paleo", label: "Палео", emoji: "🥩" },
-  { value: "mediterranean", label: "Средиземноморская", emoji: "🫒" },
-  { value: "low-carb", label: "Низкоуглеводная", emoji: "🥗" },
-] as const;
 
 const workoutLocations = [
   { value: "gym", label: "Зал", emoji: "🏋️" },
@@ -48,7 +41,8 @@ export default function Onboarding() {
   const [fitnessLevel, setFitnessLevel] = useState<"beginner" | "intermediate" | "advanced">("beginner");
   const [workoutLocation, setWorkoutLocation] = useState<"gym" | "home">("gym");
   const [goal, setGoal] = useState<typeof goals[number]["value"]>("fat-loss");
-  const [dietType, setDietType] = useState<"no-restriction" | "keto" | "paleo" | "mediterranean" | "low-carb">("no-restriction");
+  const [consentMedical, setConsentMedical] = useState(false);
+  const [consentData, setConsentData] = useState(false);
   const [dietPreferences, setDietPreferences] = useState<string[]>([]);
   const [trackCycle, setTrackCycle] = useState(false);
   const [complaints, setComplaints] = useState("");
@@ -62,7 +56,7 @@ export default function Onboarding() {
   const finish = () => {
     updateProfile({
       name, gender, age: Number(age), height: Number(height), weight: Number(weight),
-      fitnessLevel, workoutLocation, goal, dietType, dietPreferences, trackCycle, complaints, xp: 0, level: 1, streak: 1,
+      fitnessLevel, workoutLocation, goal, dietType: "no-restriction", dietPreferences, trackCycle, complaints, xp: 0, level: 1, streak: 1,
     });
     setIsOnboarded(true);
     navigate("/dashboard");
