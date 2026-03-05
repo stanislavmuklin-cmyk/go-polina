@@ -18,6 +18,8 @@ import Profile from "./pages/Profile";
 import FAQ from "./pages/FAQ";
 import AskAI from "./pages/AskAI";
 import Admin from "./pages/Admin";
+import Showcase from "./pages/Showcase";
+import Challenges from "./pages/Challenges";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -92,6 +94,8 @@ const AppRoutes = () => {
       <Route path="/sos" element={<AuthGate><ProtectedRoute><SOS /></ProtectedRoute></AuthGate>} />
       <Route path="/gamification" element={<AuthGate><ProtectedRoute><Gamification /></ProtectedRoute></AuthGate>} />
       <Route path="/protocols" element={<AuthGate><ProtectedRoute><Protocols /></ProtectedRoute></AuthGate>} />
+      <Route path="/showcase" element={<AuthGate><ProtectedRoute><Showcase /></ProtectedRoute></AuthGate>} />
+      <Route path="/challenges" element={<AuthGate><ProtectedRoute><Challenges /></ProtectedRoute></AuthGate>} />
       <Route path="/profile" element={<AuthGate><ProtectedRoute><Profile /></ProtectedRoute></AuthGate>} />
       <Route path="/faq" element={<AuthGate><ProtectedRoute><FAQ /></ProtectedRoute></AuthGate>} />
       <Route path="/ask-ai" element={<AuthGate><ProtectedRoute><AskAI /></ProtectedRoute></AuthGate>} />
