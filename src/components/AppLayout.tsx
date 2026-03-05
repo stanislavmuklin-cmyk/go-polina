@@ -16,7 +16,6 @@ const navItems = [
   { to: "/gamification", icon: Trophy, label: "Достижения" },
   { to: "/showcase", icon: Store, label: "Витрина" },
   { to: "/challenges", icon: Swords, label: "Челленджи" },
-  { to: "/profile", icon: User, label: "Профиль" },
   { to: "/ask-ai", icon: MessageCircle, label: "AI-агент" },
   { to: "/faq", icon: HelpCircle, label: "FAQ" },
 ];
