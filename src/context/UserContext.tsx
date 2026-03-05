@@ -138,7 +138,7 @@ function fromDbRow(row: any): UserProfile {
 }
 
 export const UserProvider = ({ children }: { children: ReactNode }) => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const uid = user?.id;
 
   const [profile, setProfile] = useState<UserProfile>(defaultProfile);
@@ -147,6 +147,12 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
   // Load profile from DB
   useEffect(() => {
+    // While auth is still restoring session, keep profileLoading=true
+    if (authLoading) {
+      setProfileLoading(true);
+      return;
+    }
+
     if (!uid) {
       setProfile(defaultProfile);
       setIsOnboardedState(false);
@@ -219,7 +225,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
     load();
     return () => { cancelled = true; };
-  }, [uid]);
+  }, [uid, authLoading]);
 
   const updateProfile = useCallback((partial: Partial<UserProfile>) => {
     setProfile((prev) => {

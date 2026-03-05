@@ -1,52 +1,20 @@
 
-Цель: убрать ложный редирект на онбординг после перезагрузки у уже онбордированного пользователя, не меняя остальной функционал.
 
-1) Что уже выяснено
-- В базе у пользователя `is_onboarded = true` (и в сетевом ответе профиля тоже приходит `true`).
-- Значит проблема не в сохранении профиля и не в маршруте `/` как таковом.
-- Реальная причина — гонка состояний при восстановлении сессии после refresh в `UserContext`.
+## Fix: Redirect onboarded users past onboarding
 
-Критичный сценарий гонки сейчас:
-```text
-refresh -> user еще не восстановлен (uid undefined)
--> UserContext сразу ставит profileLoading=false и isOnboarded=false
--> Auth восстанавливается, AuthGate пускает дальше
--> ProtectedRoute видит profileLoading=false + isOnboarded=false
--> редирект на /onboarding
--> только потом догружается реальный профиль (где is_onboarded=true)
-```
+### Problem
+The `/onboarding` route has no guard checking if the user already completed onboarding. When a returning user lands there (or gets redirected), they see "Добро пожаловать" again instead of going straight to the dashboard.
 
-2) Грамотное решение (точечное)
-Изменить только логику загрузки профиля в `src/context/UserContext.tsx`:
+### Solution
+Wrap the `/onboarding` route with a check: if `isOnboarded === true`, redirect to `/dashboard`.
 
-- Взять из auth не только `user`, но и `loading`:
-  - `const { user, loading: authLoading } = useAuth();`
-- Пока `authLoading === true`:
-  - **не** сбрасывать профиль в default,
-  - **не** ставить `profileLoading=false`,
-  - просто ждать завершения восстановления сессии.
-- Сбрасывать профиль в default (реальный “гость”) только когда:
-  - `authLoading === false` и `uid` отсутствует.
-- При наличии `uid` запускать загрузку профиля как сейчас.
+### Changes
 
-Итог: до фактической загрузки профиля `ProtectedRoute` всегда будет видеть `profileLoading=true`, покажет спиннер и не отправит пользователя на онбординг по ложному `false`.
+**`src/App.tsx`** (1 change):
+- Change the `/onboarding` route from:
+  ```
+  <Route path="/onboarding" element={<AuthGate><Onboarding /></AuthGate>} />
+  ```
+  to use a new `OnboardingGate` that checks `isOnboarded` and `profileLoading` from `useUser()`. If already onboarded, redirect to `/dashboard`. If still loading, show spinner. Otherwise, render `<Onboarding />`.
 
-3) Дополнительное укрепление (рекомендовано)
-В том же `UserContext`:
-- при ошибке чтения профиля не трактовать это как “не онбордирован”;
-- хранить отдельный флаг ошибки/ретрая (или хотя бы не принудительно уводить на onboarding из-за временной сетевой ошибки).
-
-4) Что это НЕ затрагивает
-- Не меняем схему базы и данные.
-- Не меняем онбординг-форму.
-- Не меняем бизнес-логику дашборда.
-- Не меняем Telegram-авторизацию.
-- Не меняем UX маршрутов, кроме устранения ошибочного редиректа.
-
-5) Проверка после правки
-- Залогиненный и онбордированный пользователь:
-  - открывает `/dashboard` → refresh 3–5 раз → остается на dashboard.
-- Открытие корня `/` после логина:
-  - сразу уходит на `/dashboard`.
-- После `signOut`:
-  - переходы остаются корректными (вход/логин).
+This is a minimal change (~10 lines) that follows the existing pattern of `ProtectedRoute` and `AdminGate`.
