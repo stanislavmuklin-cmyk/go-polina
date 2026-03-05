@@ -88,7 +88,6 @@ const RootRedirect = () => {
 };
 
 const AppRoutes = () => {
-  const { isOnboarded, profileLoading } = useUser();
   return (
     <Routes>
       {/* Public auth routes */}
