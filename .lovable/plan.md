@@ -1,20 +1,50 @@
 
 
-## Fix: Redirect onboarded users past onboarding
+## Витрина: админ-управление + отображение для пользователей
 
-### Problem
-The `/onboarding` route has no guard checking if the user already completed onboarding. When a returning user lands there (or gets redirected), they see "Добро пожаловать" again instead of going straight to the dashboard.
+### 1. База данных — новая таблица `showcase_items`
 
-### Solution
-Wrap the `/onboarding` route with a check: if `isOnboarded === true`, redirect to `/dashboard`.
+```sql
+CREATE TABLE public.showcase_items (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  title text NOT NULL DEFAULT '',
+  description text NOT NULL DEFAULT '',
+  image_url text NOT NULL DEFAULT '',
+  button_text text NOT NULL DEFAULT '',
+  button_url text NOT NULL DEFAULT '',
+  sort_order integer NOT NULL DEFAULT 0,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_by uuid
+);
+```
 
-### Changes
+RLS-политики:
+- SELECT для всех аутентифицированных (витрина публична для пользователей)
+- INSERT/UPDATE/DELETE только для админов (`has_role`)
 
-**`src/App.tsx`** (1 change):
-- Change the `/onboarding` route from:
-  ```
-  <Route path="/onboarding" element={<AuthGate><Onboarding /></AuthGate>} />
-  ```
-  to use a new `OnboardingGate` that checks `isOnboarded` and `profileLoading` from `useUser()`. If already onboarded, redirect to `/dashboard`. If still loading, show spinner. Otherwise, render `<Onboarding />`.
+Также создать storage bucket `showcase` (public) для загрузки изображений с RLS: админы могут загружать, все аутентифицированные могут читать.
 
-This is a minimal change (~10 lines) that follows the existing pattern of `ProtectedRoute` and `AdminGate`.
+### 2. Админ-панель (`src/pages/Admin.tsx`)
+
+Добавить 4-ю вкладку **"Витрина"** в `Tabs`:
+- Список карточек с полями: изображение (upload), название, описание (textarea), текст кнопки, URL кнопки
+- Кнопки: добавить карточку, удалить, сохранить порядок
+- Загрузка изображений через Supabase Storage (`showcase` bucket)
+- Drag-порядок или числовой `sort_order`
+
+### 3. Страница Витрина (`src/pages/Showcase.tsx`)
+
+- Загрузка данных из `showcase_items` (where `is_active = true`, order by `sort_order`)
+- Сетка: 2 колонки на мобильных, 3-4 на десктопе
+- Каждая карточка: изображение сверху, описание, кнопка-ссылка снизу
+- Пустое состояние если нет товаров
+
+### Файлы
+
+| Файл | Действие |
+|---|---|
+| Migration | Создать таблицу `showcase_items` + storage bucket + RLS |
+| `src/pages/Admin.tsx` | Добавить вкладку "Витрина" с CRUD |
+| `src/pages/Showcase.tsx` | Переписать — реальные данные из БД |
+
