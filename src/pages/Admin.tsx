@@ -11,6 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { generateContent } from "@/lib/ai";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ShowcaseTab } from "@/components/admin/ShowcaseTab";
+import { ChallengesTab } from "@/components/admin/ChallengesTab";
+import { Badge } from "@/components/ui/badge";
 
 const DAYS = [
   { name: "Пн", sort: 0 },
@@ -54,6 +56,7 @@ export default function Admin() {
 
   // Telegram members
   const [members, setMembers] = useState<any[]>([]);
+  const [allProfiles, setAllProfiles] = useState<any[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
   const [newTelegramId, setNewTelegramId] = useState("");
   const [newUsername, setNewUsername] = useState("");
@@ -101,8 +104,12 @@ export default function Admin() {
 
   const loadMembers = useCallback(async () => {
     setMembersLoading(true);
-    const { data } = await supabase.from("telegram_members").select("*").order("activated_at", { ascending: false });
-    if (data) setMembers(data);
+    const [{ data: tgData }, { data: profileData }] = await Promise.all([
+      supabase.from("telegram_members").select("*").order("activated_at", { ascending: false }),
+      supabase.from("profiles").select("user_id, name, level, xp, goal, created_at"),
+    ]);
+    if (tgData) setMembers(tgData);
+    if (profileData) setAllProfiles(profileData);
     setMembersLoading(false);
   }, []);
 
@@ -342,16 +349,42 @@ export default function Admin() {
         );
 
       case "members":
+        // Build unified members list
+        const profileMap = new Map(allProfiles.map((p: any) => [p.user_id, p]));
+        const tgMap = new Map(members.map((m: any) => [m.user_id, m]));
+        
+        // Collect all unique user_ids
+        const allUserIds = new Set([
+          ...allProfiles.map((p: any) => p.user_id),
+          ...members.filter((m: any) => m.user_id).map((m: any) => m.user_id),
+        ]);
+
+        const unifiedMembers = Array.from(allUserIds).map((uid) => {
+          const profile = profileMap.get(uid);
+          const tg = tgMap.get(uid);
+          return {
+            user_id: uid,
+            name: profile?.name || tg?.telegram_first_name || "—",
+            level: profile?.level || 1,
+            xp: profile?.xp || 0,
+            source: tg ? "telegram" : "email",
+            telegram_username: tg?.telegram_username || null,
+            telegram_id: tg?.telegram_id || null,
+            is_active: tg?.is_active ?? true,
+            created_at: profile?.created_at,
+          };
+        }).sort((a, b) => b.level - a.level || b.xp - a.xp);
+
         return (
           <div className="space-y-4">
             <div>
               <h2 className="font-display text-xl font-bold text-foreground">Участники</h2>
-              <p className="text-sm text-muted-foreground mt-1">Управление участниками клуба</p>
+              <p className="text-sm text-muted-foreground mt-1">Все пользователи клуба ({unifiedMembers.length})</p>
             </div>
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
-                  <Users className="w-4 h-4" /> Добавить участника
+                  <Users className="w-4 h-4" /> Добавить участника Telegram
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -362,50 +395,72 @@ export default function Admin() {
                     {addingMember ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Webhook URL для платёжного сервиса:{" "}
-                  <code className="bg-muted px-1 py-0.5 rounded text-xs break-all">
-                    {`https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/telegram-webhook`}
-                  </code>
-                </p>
               </CardContent>
             </Card>
             <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Участники клуба ({members.length})</CardTitle>
-              </CardHeader>
-              <CardContent>
+              <CardContent className="pt-6">
                 {membersLoading ? (
                   <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>
-                ) : members.length === 0 ? (
+                ) : unifiedMembers.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Нет участников</p>
                 ) : (
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Telegram ID</TableHead>
-                          <TableHead>Username</TableHead>
+                          <TableHead>Имя</TableHead>
+                          <TableHead>Источник</TableHead>
+                          <TableHead>Уровень</TableHead>
+                          <TableHead>XP</TableHead>
+                          <TableHead>Контакт</TableHead>
                           <TableHead>Статус</TableHead>
                           <TableHead className="w-[80px]"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {members.map((m) => (
-                          <TableRow key={m.id}>
-                            <TableCell className="font-mono text-xs">{m.telegram_id}</TableCell>
-                            <TableCell className="text-sm">{m.telegram_username ? `@${m.telegram_username}` : "—"}</TableCell>
+                        {unifiedMembers.map((m) => (
+                          <TableRow key={m.user_id}>
+                            <TableCell className="text-sm font-medium">{m.name}</TableCell>
                             <TableCell>
-                              {m.is_active ? (
-                                <span className="inline-flex items-center gap-1 text-xs text-green-600"><CheckCircle className="w-3.5 h-3.5" /> Активен</span>
+                              <Badge variant={m.source === "telegram" ? "default" : "secondary"} className="text-xs">
+                                {m.source === "telegram" ? "Telegram" : "Email"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-sm">{m.level}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground">{m.xp}</TableCell>
+                            <TableCell className="text-sm">
+                              {m.telegram_username ? (
+                                <a
+                                  href={`https://t.me/${m.telegram_username}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-primary hover:underline"
+                                >
+                                  @{m.telegram_username}
+                                </a>
+                              ) : m.telegram_id ? (
+                                <span className="font-mono text-xs text-muted-foreground">{m.telegram_id}</span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 text-xs text-destructive"><XCircle className="w-3.5 h-3.5" /> Неактивен</span>
+                                <span className="text-muted-foreground">—</span>
                               )}
                             </TableCell>
                             <TableCell>
-                              <Button variant="ghost" size="sm" onClick={() => toggleMember(m.telegram_id, !m.is_active)}>
-                                {m.is_active ? <XCircle className="w-3.5 h-3.5 text-destructive" /> : <CheckCircle className="w-3.5 h-3.5 text-green-600" />}
-                              </Button>
+                              {m.source === "telegram" ? (
+                                m.is_active ? (
+                                  <span className="inline-flex items-center gap-1 text-xs text-primary"><CheckCircle className="w-3.5 h-3.5" /> Активен</span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-xs text-destructive"><XCircle className="w-3.5 h-3.5" /> Неактивен</span>
+                                )
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {m.source === "telegram" && m.telegram_id && (
+                                <Button variant="ghost" size="sm" onClick={() => toggleMember(m.telegram_id, !m.is_active)}>
+                                  {m.is_active ? <XCircle className="w-3.5 h-3.5 text-destructive" /> : <CheckCircle className="w-3.5 h-3.5 text-primary" />}
+                                </Button>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -476,6 +531,17 @@ export default function Admin() {
               <p className="text-sm text-muted-foreground mt-1">Управление товарами витрины</p>
             </div>
             <ShowcaseTab />
+          </div>
+        );
+
+      case "challenges":
+        return (
+          <div className="space-y-4">
+            <div>
+              <h2 className="font-display text-xl font-bold text-foreground">Челленджи</h2>
+              <p className="text-sm text-muted-foreground mt-1">Управление челленджами клуба</p>
+            </div>
+            <ChallengesTab />
           </div>
         );
     }

@@ -1,14 +1,15 @@
 import { Link } from "react-router-dom";
-import { Dumbbell, Users, Shield, Store, ArrowLeft, X, Menu, Settings } from "lucide-react";
+import { Dumbbell, Users, Shield, Store, ArrowLeft, X, Menu, Settings, Swords } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Separator } from "@/components/ui/separator";
 
-export type AdminSection = "workouts" | "members" | "admins" | "showcase";
+export type AdminSection = "workouts" | "members" | "admins" | "showcase" | "challenges";
 
 const navItems: { id: AdminSection; icon: typeof Dumbbell; label: string }[] = [
   { id: "workouts", icon: Dumbbell, label: "Тренировки" },
   { id: "members", icon: Users, label: "Участники" },
+  { id: "challenges", icon: Swords, label: "Челленджи" },
   { id: "admins", icon: Shield, label: "Админы" },
   { id: "showcase", icon: Store, label: "Витрина" },
 ];
