@@ -16,7 +16,6 @@ const navItems = [
   { to: "/gamification", icon: Trophy, label: "Достижения" },
   { to: "/showcase", icon: Store, label: "Витрина" },
   { to: "/challenges", icon: Swords, label: "Челленджи" },
-  { to: "/profile", icon: User, label: "Профиль" },
   { to: "/ask-ai", icon: MessageCircle, label: "AI-агент" },
   { to: "/faq", icon: HelpCircle, label: "FAQ" },
 ];
@@ -53,6 +52,19 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
             );
           })}
         </nav>
+        <div className="border-t border-border pt-2 mt-2">
+          <Link
+            to="/profile"
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+              location.pathname === "/profile"
+                ? "bg-accent text-accent-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
+          >
+            <User className="w-4 h-4" />
+            Профиль
+          </Link>
+        </div>
       </aside>
 
       {/* Mobile header */}
@@ -99,6 +111,20 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                   );
                 })}
               </nav>
+              <div className="border-t border-border pt-2 mt-2">
+                <Link
+                  to="/profile"
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                    location.pathname === "/profile"
+                      ? "bg-accent text-accent-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                  <User className="w-4 h-4" />
+                  Профиль
+                </Link>
+              </div>
             </motion.aside>
           </>
         )}
