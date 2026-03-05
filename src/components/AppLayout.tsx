@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, Dumbbell, Apple, TrendingUp, Zap, Trophy, User, HelpCircle, 
-  MessageCircle, X, Menu 
+  MessageCircle, X, Menu, Store, Swords 
 } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -14,6 +14,8 @@ const navItems = [
   { to: "/progress", icon: TrendingUp, label: "Прогресс" },
   { to: "/sos", icon: Zap, label: "SOS" },
   { to: "/gamification", icon: Trophy, label: "Достижения" },
+  { to: "/showcase", icon: Store, label: "Витрина" },
+  { to: "/challenges", icon: Swords, label: "Челленджи" },
   { to: "/profile", icon: User, label: "Профиль" },
   { to: "/ask-ai", icon: MessageCircle, label: "AI-агент" },
   { to: "/faq", icon: HelpCircle, label: "FAQ" },
