@@ -25,8 +25,10 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import AccessDenied from "./pages/AccessDenied";
 import { Loader2 } from "lucide-react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useMembershipCheck } from "@/hooks/useMembershipCheck";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +40,17 @@ const AuthGate = ({ children }: { children: React.ReactNode }) => {
     </div>
   );
   if (!user) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+};
+
+const MembershipGate = ({ children }: { children: React.ReactNode }) => {
+  const { isActive, loading } = useMembershipCheck();
+  if (loading) return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+    </div>
+  );
+  if (isActive === false) return <AccessDenied />;
   return <>{children}</>;
 };
 
