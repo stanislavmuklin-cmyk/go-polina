@@ -1,11 +1,13 @@
 import { motion } from "framer-motion";
 import { AppLayout } from "@/components/AppLayout";
 import { useUser } from "@/context/UserContext";
+import { useAuth } from "@/context/AuthContext";
 import { Apple, ShoppingCart, Clock, Pill, AlertTriangle, RefreshCw } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { generateContent } from "@/lib/ai";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Meal {
   time: string;
@@ -40,8 +42,32 @@ const dayNames = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 
 const MAX_MEAL_REGEN_PER_DAY = 3;
 
+// Helper to save nutrition data to DB and localStorage
+async function saveNutritionToDB(userId: string, field: "meals" | "supplements" | "shopping", value: any) {
+  // Save to localStorage as cache
+  localStorage.setItem(`ai_${field}`, JSON.stringify(value));
+
+  const { data: existing } = await supabase
+    .from("user_nutrition")
+    .select("id")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (existing) {
+    await supabase
+      .from("user_nutrition")
+      .update({ [field]: value, updated_at: new Date().toISOString() })
+      .eq("user_id", userId);
+  } else {
+    await supabase
+      .from("user_nutrition")
+      .insert({ user_id: userId, [field]: value });
+  }
+}
+
 export default function Nutrition() {
   const { profile, addXP, updateProfile } = useUser();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<"meals" | "supplements" | "shopping">("meals");
   const [completedMeals, setCompletedMeals] = useState<Set<string>>(new Set());
 
@@ -53,57 +79,118 @@ export default function Nutrition() {
   const [loadingMeals, setLoadingMeals] = useState(false);
   const [loadingSupplements, setLoadingSupplements] = useState(false);
   const [loadingShopping, setLoadingShopping] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
 
-  const generateMeals = useCallback(async () => {
+  const dataLoadedRef = useRef(false);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const regenCount = profile.mealRegenResetDate === today ? (profile.mealRegenCount ?? 0) : 0;
+  const regenRemaining = MAX_MEAL_REGEN_PER_DAY - regenCount;
+
+  // Load all nutrition data from DB on mount
+  useEffect(() => {
+    if (!user || dataLoadedRef.current) return;
+    dataLoadedRef.current = true;
+
+    (async () => {
+      setInitialLoading(true);
+      try {
+        const { data } = await supabase
+          .from("user_nutrition")
+          .select("meals, supplements, shopping")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (data?.meals) {
+          setMealDays(data.meals as MealDay[]);
+          localStorage.setItem("ai_meals", JSON.stringify(data.meals));
+        }
+        if (data?.supplements) {
+          setSupplements(data.supplements as Supplement[]);
+          localStorage.setItem("ai_supplements", JSON.stringify(data.supplements));
+        }
+        if (data?.shopping) {
+          setShopping(data.shopping as ShoppingCategory[]);
+          localStorage.setItem("ai_shopping", JSON.stringify(data.shopping));
+        }
+
+        // If no meals exist at all, generate them
+        if (!data?.meals) {
+          await generateAndSaveMeals();
+        }
+      } catch {
+        // Fallback to localStorage
+        const cached = localStorage.getItem("ai_meals");
+        if (cached) try { setMealDays(JSON.parse(cached)); } catch {}
+      } finally {
+        setInitialLoading(false);
+      }
+    })();
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const generateAndSaveMeals = useCallback(async () => {
+    if (!user) return;
     setLoadingMeals(true);
     try {
       const data = await generateContent("meals", profile);
       if (data?.days) {
         setMealDays(data.days);
-        localStorage.setItem("ai_meals", JSON.stringify(data.days));
+        await saveNutritionToDB(user.id, "meals", data.days);
       }
     } catch (e: any) {
       toast.error(e.message || "Ошибка генерации плана питания");
     } finally {
       setLoadingMeals(false);
     }
-  }, [profile]);
+  }, [profile, user]);
 
-  const generateSupplements = useCallback(async () => {
+  const generateAndSaveSupplements = useCallback(async () => {
+    if (!user) return;
     setLoadingSupplements(true);
     try {
       const data = await generateContent("supplements", profile);
       if (data?.supplements) {
         setSupplements(data.supplements);
-        localStorage.setItem("ai_supplements", JSON.stringify(data.supplements));
+        await saveNutritionToDB(user.id, "supplements", data.supplements);
       }
     } catch (e: any) {
       toast.error(e.message || "Ошибка генерации добавок");
     } finally {
       setLoadingSupplements(false);
     }
-  }, [profile]);
+  }, [profile, user]);
 
-  const generateShopping = useCallback(async () => {
+  const generateAndSaveShopping = useCallback(async () => {
+    if (!user) return;
     setLoadingShopping(true);
     try {
       const data = await generateContent("shopping", profile, { mealPlan: mealDays });
       if (data?.categories) {
         setShopping(data.categories);
-        localStorage.setItem("ai_shopping", JSON.stringify(data.categories));
+        await saveNutritionToDB(user.id, "shopping", data.categories);
       }
     } catch (e: any) {
       toast.error(e.message || "Ошибка генерации списка покупок");
     } finally {
       setLoadingShopping(false);
     }
-  }, [profile, mealDays]);
+  }, [profile, user, mealDays]);
 
-  const today = new Date().toISOString().slice(0, 10);
-  const regenCount = profile.mealRegenResetDate === today ? (profile.mealRegenCount ?? 0) : 0;
-  const regenRemaining = MAX_MEAL_REGEN_PER_DAY - regenCount;
+  // Auto-generate supplements/shopping on first tab visit if empty
+  useEffect(() => {
+    if (activeTab === "supplements" && supplements.length === 0 && !initialLoading && user) {
+      generateAndSaveSupplements();
+    }
+  }, [activeTab, initialLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (activeTab === "shopping" && shopping.length === 0 && !initialLoading && user && mealDays.length > 0) {
+      generateAndSaveShopping();
+    }
+  }, [activeTab, mealDays.length, initialLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const regenerateMeal = useCallback(async (dayIdx: number, mealIdx: number) => {
+    if (!user) return;
     const currentToday = new Date().toISOString().slice(0, 10);
     const currentCount = profile.mealRegenResetDate === currentToday ? (profile.mealRegenCount ?? 0) : 0;
     if (currentCount >= MAX_MEAL_REGEN_PER_DAY) {
@@ -126,37 +213,14 @@ export default function Nutrition() {
           meals: updated[dayIdx].meals.map((m, i) => i === mealIdx ? data.days[0].meals[0] : m),
         };
         setMealDays(updated);
-        localStorage.setItem("ai_meals", JSON.stringify(updated));
+        await saveNutritionToDB(user.id, "meals", updated);
         toast.success("Блюдо обновлено!");
-        // Increment regen counter
         updateProfile({ mealRegenCount: currentCount + 1, mealRegenResetDate: currentToday });
       }
     } catch (e: any) {
       toast.error(e.message || "Ошибка обновления");
     }
-  }, [mealDays, profile, updateProfile]);
-
-  useEffect(() => {
-    const cached = localStorage.getItem("ai_meals");
-    if (cached) { try { setMealDays(JSON.parse(cached)); return; } catch {} }
-    generateMeals();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (activeTab === "supplements" && supplements.length === 0) {
-      const cached = localStorage.getItem("ai_supplements");
-      if (cached) { try { setSupplements(JSON.parse(cached)); return; } catch {} }
-      generateSupplements();
-    }
-  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (activeTab === "shopping" && shopping.length === 0) {
-      const cached = localStorage.getItem("ai_shopping");
-      if (cached) { try { setShopping(JSON.parse(cached)); return; } catch {} }
-      if (mealDays.length > 0) generateShopping();
-    }
-  }, [activeTab, mealDays.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mealDays, profile, updateProfile, user]);
 
   const completeMeal = (key: string) => {
     if (!completedMeals.has(key)) {
@@ -204,16 +268,11 @@ export default function Nutrition() {
               ))}
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center">
               <span className="text-xs text-muted-foreground">Замен блюд: {regenRemaining}/{MAX_MEAL_REGEN_PER_DAY}</span>
-              <button onClick={() => generateMeals()} disabled={loadingMeals}
-                className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 disabled:opacity-50"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${loadingMeals ? "animate-spin" : ""}`} /> Обновить план
-              </button>
             </div>
 
-            {loadingMeals ? (
+            {(loadingMeals || initialLoading) ? (
               <div className="space-y-3">
                 {[1, 2, 3, 4].map((i) => (
                   <div key={i} className="bg-card rounded-xl border border-border p-4 space-y-2">
@@ -272,20 +331,13 @@ export default function Nutrition() {
                 })}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-8">Нажмите «Обновить план» для генерации</p>
+              <p className="text-sm text-muted-foreground text-center py-8">План питания генерируется...</p>
             )}
           </motion.div>
         )}
 
         {activeTab === "supplements" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-            <div className="flex justify-end">
-              <button onClick={() => generateSupplements()} disabled={loadingSupplements}
-                className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 disabled:opacity-50"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${loadingSupplements ? "animate-spin" : ""}`} /> Обновить
-              </button>
-            </div>
             {loadingSupplements ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
@@ -321,13 +373,6 @@ export default function Nutrition() {
 
         {activeTab === "shopping" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-            <div className="flex justify-end">
-              <button onClick={() => generateShopping()} disabled={loadingShopping}
-                className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 disabled:opacity-50"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${loadingShopping ? "animate-spin" : ""}`} /> Обновить
-              </button>
-            </div>
             {loadingShopping ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
