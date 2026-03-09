@@ -102,15 +102,15 @@ export default function Nutrition() {
           .maybeSingle();
 
         if (data?.meals) {
-          setMealDays(data.meals as MealDay[]);
+          setMealDays(data.meals as unknown as MealDay[]);
           localStorage.setItem("ai_meals", JSON.stringify(data.meals));
         }
         if (data?.supplements) {
-          setSupplements(data.supplements as Supplement[]);
+          setSupplements(data.supplements as unknown as Supplement[]);
           localStorage.setItem("ai_supplements", JSON.stringify(data.supplements));
         }
         if (data?.shopping) {
-          setShopping(data.shopping as ShoppingCategory[]);
+          setShopping(data.shopping as unknown as ShoppingCategory[]);
           localStorage.setItem("ai_shopping", JSON.stringify(data.shopping));
         }
 
