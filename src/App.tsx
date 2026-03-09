@@ -25,8 +25,10 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import AccessDenied from "./pages/AccessDenied";
 import { Loader2 } from "lucide-react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useMembershipCheck } from "@/hooks/useMembershipCheck";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +40,17 @@ const AuthGate = ({ children }: { children: React.ReactNode }) => {
     </div>
   );
   if (!user) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+};
+
+const MembershipGate = ({ children }: { children: React.ReactNode }) => {
+  const { isActive, loading } = useMembershipCheck();
+  if (loading) return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+    </div>
+  );
+  if (isActive === false) return <AccessDenied />;
   return <>{children}</>;
 };
 
@@ -98,19 +111,19 @@ const AppRoutes = () => {
 
       {/* Protected routes */}
       <Route path="/" element={<RootRedirect />} />
-      <Route path="/onboarding" element={<AuthGate><OnboardingGate><Onboarding /></OnboardingGate></AuthGate>} />
-      <Route path="/dashboard" element={<AuthGate><ProtectedRoute><Dashboard /></ProtectedRoute></AuthGate>} />
-      <Route path="/workouts" element={<AuthGate><ProtectedRoute><Workouts /></ProtectedRoute></AuthGate>} />
-      <Route path="/nutrition" element={<AuthGate><ProtectedRoute><Nutrition /></ProtectedRoute></AuthGate>} />
-      <Route path="/progress" element={<AuthGate><ProtectedRoute><Progress /></ProtectedRoute></AuthGate>} />
-      <Route path="/sos" element={<AuthGate><ProtectedRoute><SOS /></ProtectedRoute></AuthGate>} />
-      <Route path="/gamification" element={<AuthGate><ProtectedRoute><Gamification /></ProtectedRoute></AuthGate>} />
-      <Route path="/protocols" element={<AuthGate><ProtectedRoute><Protocols /></ProtectedRoute></AuthGate>} />
-      <Route path="/showcase" element={<AuthGate><ProtectedRoute><Showcase /></ProtectedRoute></AuthGate>} />
-      <Route path="/challenges" element={<AuthGate><ProtectedRoute><Challenges /></ProtectedRoute></AuthGate>} />
-      <Route path="/profile" element={<AuthGate><ProtectedRoute><Profile /></ProtectedRoute></AuthGate>} />
-      <Route path="/faq" element={<AuthGate><ProtectedRoute><FAQ /></ProtectedRoute></AuthGate>} />
-      <Route path="/ask-ai" element={<AuthGate><ProtectedRoute><AskAI /></ProtectedRoute></AuthGate>} />
+      <Route path="/onboarding" element={<AuthGate><MembershipGate><OnboardingGate><Onboarding /></OnboardingGate></MembershipGate></AuthGate>} />
+      <Route path="/dashboard" element={<AuthGate><MembershipGate><ProtectedRoute><Dashboard /></ProtectedRoute></MembershipGate></AuthGate>} />
+      <Route path="/workouts" element={<AuthGate><MembershipGate><ProtectedRoute><Workouts /></ProtectedRoute></MembershipGate></AuthGate>} />
+      <Route path="/nutrition" element={<AuthGate><MembershipGate><ProtectedRoute><Nutrition /></ProtectedRoute></MembershipGate></AuthGate>} />
+      <Route path="/progress" element={<AuthGate><MembershipGate><ProtectedRoute><Progress /></ProtectedRoute></MembershipGate></AuthGate>} />
+      <Route path="/sos" element={<AuthGate><MembershipGate><ProtectedRoute><SOS /></ProtectedRoute></MembershipGate></AuthGate>} />
+      <Route path="/gamification" element={<AuthGate><MembershipGate><ProtectedRoute><Gamification /></ProtectedRoute></MembershipGate></AuthGate>} />
+      <Route path="/protocols" element={<AuthGate><MembershipGate><ProtectedRoute><Protocols /></ProtectedRoute></MembershipGate></AuthGate>} />
+      <Route path="/showcase" element={<AuthGate><MembershipGate><ProtectedRoute><Showcase /></ProtectedRoute></MembershipGate></AuthGate>} />
+      <Route path="/challenges" element={<AuthGate><MembershipGate><ProtectedRoute><Challenges /></ProtectedRoute></MembershipGate></AuthGate>} />
+      <Route path="/profile" element={<AuthGate><MembershipGate><ProtectedRoute><Profile /></ProtectedRoute></MembershipGate></AuthGate>} />
+      <Route path="/faq" element={<AuthGate><MembershipGate><ProtectedRoute><FAQ /></ProtectedRoute></MembershipGate></AuthGate>} />
+      <Route path="/ask-ai" element={<AuthGate><MembershipGate><ProtectedRoute><AskAI /></ProtectedRoute></MembershipGate></AuthGate>} />
       <Route path="/admin" element={<AuthGate><AdminGate><Admin /></AdminGate></AuthGate>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
