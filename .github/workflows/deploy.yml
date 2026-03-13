@@ -1,0 +1,68 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build application
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID }}
+        run: npm run build
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add server to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Prepare release archive
+        run: tar -czf release.tar.gz dist
+
+      - name: Upload release archive
+        run: |
+          scp release.tar.gz "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/tmp/go-polina-release.tar.gz"
+
+      - name: Activate release on server
+        run: |
+          ssh "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" '
+            set -eu
+            APP_DIR="${{ secrets.DEPLOY_PATH }}"
+            RELEASE_DIR="$APP_DIR/releases/$(date +%Y%m%d%H%M%S)"
+            mkdir -p "$APP_DIR/releases" "$APP_DIR/shared"
+            rm -rf "$RELEASE_DIR"
+            mkdir -p "$RELEASE_DIR"
+            tar -xzf /tmp/go-polina-release.tar.gz -C "$RELEASE_DIR"
+            rm -f /tmp/go-polina-release.tar.gz
+            ln -sfn "$RELEASE_DIR/dist" "$APP_DIR/current"
+            if command -v systemctl >/dev/null 2>&1; then
+              systemctl reload nginx
+            fi
+          '
