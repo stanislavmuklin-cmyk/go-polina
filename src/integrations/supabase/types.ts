@@ -247,6 +247,30 @@ export type Database = {
         }
         Relationships: []
       }
+      progress_photos: {
+        Row: {
+          created_at: string
+          id: string
+          photo_url: string
+          report_date: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          photo_url: string
+          report_date: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          photo_url?: string
+          report_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       showcase_items: {
         Row: {
           button_text: string
