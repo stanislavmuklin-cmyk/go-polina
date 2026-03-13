@@ -1,7 +1,9 @@
-import { Ruler, ClipboardCheck, Loader2, Calendar } from "lucide-react";
-import { useState } from "react";
+import { Ruler, ClipboardCheck, Loader2, Calendar, Camera, X } from "lucide-react";
+import { useState, useRef } from "react";
 import { useUser } from "@/context/UserContext";
+import { useAuth } from "@/context/AuthContext";
 import { generateContent } from "@/lib/ai";
+import { supabase } from "@/integrations/supabase/client";
 import { format, addDays, differenceInDays, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { motion } from "framer-motion";
@@ -10,6 +12,7 @@ import ReactMarkdown from "react-markdown";
 
 export default function WeeklyReport() {
   const { profile, updateProfile, addXP } = useUser();
+  const { user } = useAuth();
 
   const lastDate = profile.lastWeeklyReportDate ? parseISO(profile.lastWeeklyReportDate) : null;
   const nextDate = lastDate ? addDays(lastDate, 7) : null;
@@ -26,6 +29,59 @@ export default function WeeklyReport() {
   const [aiResponse, setAiResponse] = useState<{ summary: string; recommendations: string[]; encouragement: string } | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
 
+  // Photo upload state
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const remaining = 3 - selectedFiles.length;
+    const newFiles = files.slice(0, remaining);
+    if (newFiles.length === 0) return;
+
+    setSelectedFiles(prev => [...prev, ...newFiles]);
+    const urls = newFiles.map(f => URL.createObjectURL(f));
+    setPreviewUrls(prev => [...prev, ...urls]);
+
+    // Reset input
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removePhoto = (index: number) => {
+    URL.revokeObjectURL(previewUrls[index]);
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    setPreviewUrls(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadPhotos = async (reportDate: string): Promise<void> => {
+    if (!user || selectedFiles.length === 0) return;
+
+    for (const file of selectedFiles) {
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `${user.id}/${reportDate}/${crypto.randomUUID()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("progress-photos")
+        .upload(path, file, { contentType: file.type });
+
+      if (uploadError) {
+        console.error("Photo upload error:", uploadError);
+        continue;
+      }
+
+      const { data: urlData } = supabase.storage
+        .from("progress-photos")
+        .getPublicUrl(path);
+
+      await supabase.from("progress_photos").insert({
+        user_id: user.id,
+        report_date: reportDate,
+        photo_url: urlData.publicUrl,
+      });
+    }
+  };
+
   const handleSubmit = async () => {
     setIsSubmitting(true);
     setAiError(null);
@@ -41,9 +97,14 @@ export default function WeeklyReport() {
       const result = await generateContent("report", profile, reportData);
       setAiResponse(result);
 
+      const reportDate = format(today, "yyyy-MM-dd");
+
+      // Upload photos
+      await uploadPhotos(reportDate);
+
       // Save measurement to history
       const newEntry = {
-        date: format(today, "yyyy-MM-dd"),
+        date: reportDate,
         weight: reportData.weight,
         chest: reportData.chest,
         waist: reportData.waist,
@@ -53,10 +114,15 @@ export default function WeeklyReport() {
       const updatedReports = [...(profile.weeklyReports || []), newEntry];
 
       updateProfile({
-        lastWeeklyReportDate: format(today, "yyyy-MM-dd"),
+        lastWeeklyReportDate: reportDate,
         weeklyReports: updatedReports,
       });
       addXP(20);
+
+      // Clear photo state
+      previewUrls.forEach(url => URL.revokeObjectURL(url));
+      setSelectedFiles([]);
+      setPreviewUrls([]);
     } catch (err: any) {
       setAiError(err.message || "Ошибка анализа");
     } finally {
@@ -119,6 +185,51 @@ export default function WeeklyReport() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Photo upload */}
+        <div>
+          <label className="text-sm text-muted-foreground mb-2 block flex items-center gap-1.5">
+            <Camera className="w-4 h-4" /> Загрузить фото (до 3)
+          </label>
+
+          {/* Thumbnails */}
+          {previewUrls.length > 0 && (
+            <div className="flex gap-2 mb-3">
+              {previewUrls.map((url, i) => (
+                <div key={i} className="relative w-20 h-20 rounded-lg overflow-hidden border border-border">
+                  <img src={url} alt={`Фото ${i + 1}`} className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removePhoto(i)}
+                    className="absolute top-0.5 right-0.5 bg-background/80 rounded-full p-0.5"
+                  >
+                    <X className="w-3.5 h-3.5 text-foreground" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {selectedFiles.length < 3 && (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full py-2.5 rounded-lg border border-dashed border-border text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2"
+            >
+              <Camera className="w-4 h-4" />
+              {selectedFiles.length === 0 ? "Выбрать фото" : "Добавить ещё"}
+            </button>
+          )}
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleFileSelect}
+            className="hidden"
+          />
         </div>
 
         {/* Submit */}
