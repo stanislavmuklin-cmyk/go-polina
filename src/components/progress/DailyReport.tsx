@@ -60,10 +60,7 @@ export default function DailyReport() {
           {/* Workout toggle */}
           <div className="flex items-center justify-between">
             <label className="text-sm text-muted-foreground">Тренировка выполнена</label>
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-muted-foreground">{workoutDone ? "Да ✅" : "Нет"}</span>
-              <Switch checked={workoutDone} onCheckedChange={setWorkoutDone} />
-            </div>
+            <Switch checked={workoutDone} onCheckedChange={setWorkoutDone} />
           </div>
 
           {/* Energy slider */}

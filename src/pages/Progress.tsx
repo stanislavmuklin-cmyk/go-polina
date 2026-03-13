@@ -1,13 +1,16 @@
 import { motion } from "framer-motion";
 import { AppLayout } from "@/components/AppLayout";
 import { useUser } from "@/context/UserContext";
-import { TrendingDown, Footprints, ClipboardList } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { TrendingDown, Footprints, ClipboardList, Camera } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import DailyReport from "@/components/progress/DailyReport";
 import WeeklyReport from "@/components/progress/WeeklyReport";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import {
@@ -29,8 +32,15 @@ const MEASUREMENT_LABELS: Record<string, string> = {
   thigh: "Бедро",
 };
 
+interface ProgressPhoto {
+  id: string;
+  report_date: string;
+  photo_url: string;
+}
+
 export default function Progress() {
   const { profile } = useUser();
+  const { user } = useAuth();
   const location = useLocation();
   const reportRef = useRef<HTMLDivElement>(null);
 
@@ -38,11 +48,28 @@ export default function Progress() {
     chest: true, waist: true, glutes: true, thigh: true,
   });
 
+  const [photos, setPhotos] = useState<ProgressPhoto[]>([]);
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+
   useEffect(() => {
     if (location.hash === "#report" && reportRef.current) {
       setTimeout(() => reportRef.current?.scrollIntoView({ behavior: "smooth" }), 300);
     }
   }, [location.hash]);
+
+  // Load progress photos
+  useEffect(() => {
+    if (!user) return;
+    const load = async () => {
+      const { data } = await supabase
+        .from("progress_photos")
+        .select("id, report_date, photo_url")
+        .eq("user_id", user.id)
+        .order("report_date", { ascending: true });
+      if (data) setPhotos(data);
+    };
+    load();
+  }, [user]);
 
   const weeklyReports = profile.weeklyReports || [];
   const dailyReports = profile.dailyReports || [];
@@ -90,6 +117,14 @@ export default function Progress() {
   const hasWeeklyData = weeklyReports.length > 0;
   const hasDailyData = dailyReports.length > 0;
 
+  // Group photos by date
+  const photosByDate = photos.reduce<Record<string, ProgressPhoto[]>>((acc, p) => {
+    const key = p.report_date;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(p);
+    return acc;
+  }, {});
+
   const EmptyState = ({ text }: { text: string }) => (
     <div className="flex flex-col items-center justify-center py-12 text-center">
       <ClipboardList className="w-10 h-10 text-muted-foreground mb-3" />
@@ -125,11 +160,12 @@ export default function Progress() {
 
         {/* Tabs with charts */}
         <Tabs defaultValue="weight" className="w-full">
-          <TabsList className="w-full grid grid-cols-4">
+          <TabsList className="w-full grid grid-cols-5">
             <TabsTrigger value="weight">Вес</TabsTrigger>
             <TabsTrigger value="measurements">Объёмы</TabsTrigger>
             <TabsTrigger value="steps">Шаги</TabsTrigger>
             <TabsTrigger value="sleep">Сон</TabsTrigger>
+            <TabsTrigger value="photos">Фото</TabsTrigger>
           </TabsList>
 
           <TabsContent value="weight">
@@ -221,6 +257,38 @@ export default function Progress() {
               )}
             </div>
           </TabsContent>
+
+          {/* Photos tab */}
+          <TabsContent value="photos">
+            <div className="bg-card rounded-xl border border-border p-4 shadow-soft">
+              {photos.length === 0 ? (
+                <EmptyState text="Загрузите фото в еженедельном отчёте, чтобы отслеживать прогресс" />
+              ) : (
+                <div className="space-y-4">
+                  {Object.entries(photosByDate)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([date, datePhotos]) => (
+                      <div key={date}>
+                        <p className="text-xs text-muted-foreground mb-2">
+                          {format(parseISO(date), "d MMMM yyyy", { locale: ru })}
+                        </p>
+                        <div className="flex gap-2 flex-wrap">
+                          {datePhotos.map(p => (
+                            <button
+                              key={p.id}
+                              onClick={() => setSelectedPhoto(p.photo_url)}
+                              className="w-20 h-20 rounded-lg overflow-hidden border border-border hover:border-primary transition-colors"
+                            >
+                              <img src={p.photo_url} alt="Прогресс" className="w-full h-full object-cover" />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
         </Tabs>
 
         {/* Daily Report */}
@@ -231,6 +299,15 @@ export default function Progress() {
         {/* Weekly Report */}
         <WeeklyReport />
       </div>
+
+      {/* Photo dialog */}
+      <Dialog open={!!selectedPhoto} onOpenChange={() => setSelectedPhoto(null)}>
+        <DialogContent className="max-w-lg p-2">
+          {selectedPhoto && (
+            <img src={selectedPhoto} alt="Прогресс" className="w-full rounded-lg" />
+          )}
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
