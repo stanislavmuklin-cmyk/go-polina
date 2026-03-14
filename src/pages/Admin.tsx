@@ -12,6 +12,7 @@ import { generateContent } from "@/lib/ai";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ShowcaseTab } from "@/components/admin/ShowcaseTab";
 import { ChallengesTab } from "@/components/admin/ChallengesTab";
+import { AnalysesTab } from "@/components/admin/AnalysesTab";
 import { Badge } from "@/components/ui/badge";
 
 const DAYS = [
