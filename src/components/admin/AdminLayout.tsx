@@ -12,6 +12,7 @@ const navItems: { id: AdminSection; icon: typeof Dumbbell; label: string }[] = [
   { id: "challenges", icon: Swords, label: "Челленджи" },
   { id: "admins", icon: Shield, label: "Админы" },
   { id: "showcase", icon: Store, label: "Витрина" },
+  { id: "analyses", icon: ClipboardList, label: "Анализы" },
 ];
 
 interface AdminLayoutProps {

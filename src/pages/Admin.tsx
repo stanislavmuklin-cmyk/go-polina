@@ -545,6 +545,17 @@ export default function Admin() {
             <ChallengesTab />
           </div>
         );
+
+      case "analyses":
+        return (
+          <div className="space-y-4">
+            <div>
+              <h2 className="font-display text-xl font-bold text-foreground">Анализы</h2>
+              <p className="text-sm text-muted-foreground mt-1">Управление списком анализов</p>
+            </div>
+            <AnalysesTab />
+          </div>
+        );
     }
   };
 

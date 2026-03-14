@@ -122,6 +122,7 @@ const AppRoutes = () => {
       <Route path="/protocols" element={<AuthGate><MembershipGate><ProtectedRoute><Protocols /></ProtectedRoute></MembershipGate></AuthGate>} />
       <Route path="/showcase" element={<AuthGate><MembershipGate><ProtectedRoute><Showcase /></ProtectedRoute></MembershipGate></AuthGate>} />
       <Route path="/challenges" element={<AuthGate><MembershipGate><ProtectedRoute><Challenges /></ProtectedRoute></MembershipGate></AuthGate>} />
+      <Route path="/analyses" element={<AuthGate><MembershipGate><ProtectedRoute><Analyses /></ProtectedRoute></MembershipGate></AuthGate>} />
       <Route path="/profile" element={<AuthGate><MembershipGate><ProtectedRoute><Profile /></ProtectedRoute></MembershipGate></AuthGate>} />
       <Route path="/faq" element={<AuthGate><MembershipGate><ProtectedRoute><FAQ /></ProtectedRoute></MembershipGate></AuthGate>} />
       <Route path="/ask-ai" element={<AuthGate><MembershipGate><ProtectedRoute><AskAI /></ProtectedRoute></MembershipGate></AuthGate>} />
