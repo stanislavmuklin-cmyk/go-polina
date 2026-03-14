@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Dumbbell, Users, Shield, Store, ArrowLeft, X, Menu, Settings, Swords } from "lucide-react";
+import { Dumbbell, Users, Shield, Store, ArrowLeft, X, Menu, Settings, Swords, ClipboardList } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Separator } from "@/components/ui/separator";
