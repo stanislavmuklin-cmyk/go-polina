@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Separator } from "@/components/ui/separator";
 
-export type AdminSection = "workouts" | "members" | "admins" | "showcase" | "challenges";
+export type AdminSection = "workouts" | "members" | "admins" | "showcase" | "challenges" | "analyses";
 
 const navItems: { id: AdminSection; icon: typeof Dumbbell; label: string }[] = [
   { id: "workouts", icon: Dumbbell, label: "Тренировки" },
