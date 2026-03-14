@@ -1,20 +1,40 @@
 
 
-## Fix: Redirect onboarded users past onboarding
+## План: Добавить раздел «Анализы»
 
-### Problem
-The `/onboarding` route has no guard checking if the user already completed onboarding. When a returning user lands there (or gets redirected), they see "Добро пожаловать" again instead of going straight to the dashboard.
+### 1. База данных
+Создать таблицу `analyses` для хранения списка анализов:
 
-### Solution
-Wrap the `/onboarding` route with a check: if `isOnboarded === true`, redirect to `/dashboard`.
+```sql
+CREATE TABLE public.analyses (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  title text NOT NULL DEFAULT '',
+  description text NOT NULL DEFAULT '',
+  sort_order integer NOT NULL DEFAULT 0,
+  is_active boolean NOT NULL DEFAULT true,
+  created_by uuid,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+```
 
-### Changes
+RLS: админы — полный доступ (CRUD), авторизованные пользователи — только чтение активных.
 
-**`src/App.tsx`** (1 change):
-- Change the `/onboarding` route from:
-  ```
-  <Route path="/onboarding" element={<AuthGate><Onboarding /></AuthGate>} />
-  ```
-  to use a new `OnboardingGate` that checks `isOnboarded` and `profileLoading` from `useUser()`. If already onboarded, redirect to `/dashboard`. If still loading, show spinner. Otherwise, render `<Onboarding />`.
+### 2. Админ-панель
+- Добавить `"analyses"` в `AdminSection` type и навигацию в `AdminLayout.tsx` (иконка `ClipboardList`, label «Анализы»).
+- Создать `src/components/admin/AnalysesTab.tsx` — по аналогии с `ChallengesTab`: загрузка списка анализов, добавление/удаление/редактирование (название + описание), сохранение в БД.
+- Добавить case `"analyses"` в `renderContent()` в `Admin.tsx`.
 
-This is a minimal change (~10 lines) that follows the existing pattern of `ProtectedRoute` and `AdminGate`.
+### 3. Основное приложение
+- Добавить пункт навигации `{ to: "/analyses", icon: ClipboardList, label: "Анализы" }` в `AppLayout.tsx`.
+- Создать страницу `src/pages/Analyses.tsx` — загружает активные анализы из таблицы `analyses` и отображает их карточками (название + описание).
+- Добавить маршрут `/analyses` в `App.tsx` (обёрнутый в `AuthGate > MembershipGate > ProtectedRoute`).
+
+### Файлы для изменения/создания:
+- Миграция: новая таблица `analyses` + RLS
+- `src/components/admin/AdminLayout.tsx` — добавить секцию
+- `src/components/admin/AnalysesTab.tsx` — новый файл
+- `src/pages/Admin.tsx` — добавить case
+- `src/components/AppLayout.tsx` — добавить навигацию
+- `src/pages/Analyses.tsx` — новая страница
+- `src/App.tsx` — добавить маршрут
+
