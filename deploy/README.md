@@ -12,7 +12,6 @@ Set these repository secrets before enabling the workflow:
 - `DEPLOY_PATH`: deploy base path on the server, for example `/var/www/go-polina`
 - `VITE_SUPABASE_URL`: production Supabase URL, for example `https://api.vozclub.ru`
 - `VITE_SUPABASE_PUBLISHABLE_KEY`: production publishable key from self-hosted Supabase
-- `VITE_SUPABASE_PROJECT_ID`: optional compatibility value if still used by your CI setup
 
 ## Server Layout
 
