@@ -20,6 +20,7 @@ import AskAI from "./pages/AskAI";
 import Admin from "./pages/Admin";
 import Showcase from "./pages/Showcase";
 import Challenges from "./pages/Challenges";
+import Analyses from "./pages/Analyses";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
