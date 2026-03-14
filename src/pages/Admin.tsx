@@ -12,6 +12,7 @@ import { generateContent } from "@/lib/ai";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ShowcaseTab } from "@/components/admin/ShowcaseTab";
 import { ChallengesTab } from "@/components/admin/ChallengesTab";
+import { AnalysesTab } from "@/components/admin/AnalysesTab";
 import { Badge } from "@/components/ui/badge";
 
 const DAYS = [
@@ -542,6 +543,17 @@ export default function Admin() {
               <p className="text-sm text-muted-foreground mt-1">Управление челленджами клуба</p>
             </div>
             <ChallengesTab />
+          </div>
+        );
+
+      case "analyses":
+        return (
+          <div className="space-y-4">
+            <div>
+              <h2 className="font-display text-xl font-bold text-foreground">Анализы</h2>
+              <p className="text-sm text-muted-foreground mt-1">Управление списком анализов</p>
+            </div>
+            <AnalysesTab />
           </div>
         );
     }

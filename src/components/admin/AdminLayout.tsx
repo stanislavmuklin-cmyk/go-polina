@@ -1,10 +1,10 @@
 import { Link } from "react-router-dom";
-import { Dumbbell, Users, Shield, Store, ArrowLeft, X, Menu, Settings, Swords } from "lucide-react";
+import { Dumbbell, Users, Shield, Store, ArrowLeft, X, Menu, Settings, Swords, ClipboardList } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Separator } from "@/components/ui/separator";
 
-export type AdminSection = "workouts" | "members" | "admins" | "showcase" | "challenges";
+export type AdminSection = "workouts" | "members" | "admins" | "showcase" | "challenges" | "analyses";
 
 const navItems: { id: AdminSection; icon: typeof Dumbbell; label: string }[] = [
   { id: "workouts", icon: Dumbbell, label: "Тренировки" },
@@ -12,6 +12,7 @@ const navItems: { id: AdminSection; icon: typeof Dumbbell; label: string }[] = [
   { id: "challenges", icon: Swords, label: "Челленджи" },
   { id: "admins", icon: Shield, label: "Админы" },
   { id: "showcase", icon: Store, label: "Витрина" },
+  { id: "analyses", icon: ClipboardList, label: "Анализы" },
 ];
 
 interface AdminLayoutProps {
