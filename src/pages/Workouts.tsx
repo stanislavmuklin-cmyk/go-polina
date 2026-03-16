@@ -113,11 +113,11 @@ export default function Workouts() {
   };
 
   const toggleComplete = (idx: number) => {
-    setCompleted((prev) => {
-      const next = new Set(prev);
-      if (next.has(idx)) next.delete(idx); else { next.add(idx); addXP(5); }
-      return next;
-    });
+    const key = String(idx);
+    if (!completedWorkoutsArr.includes(key)) {
+      updateProfile({ completedWorkouts: [...completedWorkoutsArr, key] });
+      addXP(5);
+    }
   };
 
   const upgradePlan = async () => {
