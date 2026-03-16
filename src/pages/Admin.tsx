@@ -354,16 +354,17 @@ export default function Admin() {
         const profileMap = new Map(allProfiles.map((p: any) => [p.user_id, p]));
         const tgMap = new Map(members.map((m: any) => [m.user_id, m]));
         
-        // Collect all unique user_ids
+        // Merge email users with Telegram-only members that do not yet have a linked auth user.
         const allUserIds = new Set([
           ...allProfiles.map((p: any) => p.user_id),
           ...members.filter((m: any) => m.user_id).map((m: any) => m.user_id),
         ]);
 
-        const unifiedMembers = Array.from(allUserIds).map((uid) => {
+        const linkedMembers = Array.from(allUserIds).map((uid) => {
           const profile = profileMap.get(uid);
           const tg = tgMap.get(uid);
           return {
+            row_key: uid,
             user_id: uid,
             name: profile?.name || tg?.telegram_first_name || "—",
             level: profile?.level || 1,
@@ -374,7 +375,25 @@ export default function Admin() {
             is_active: tg?.is_active ?? true,
             created_at: profile?.created_at,
           };
-        }).sort((a, b) => b.level - a.level || b.xp - a.xp);
+        });
+
+        const telegramOnlyMembers = members
+          .filter((m: any) => !m.user_id)
+          .map((m: any) => ({
+            row_key: `tg:${m.telegram_id}`,
+            user_id: null,
+            name: m.telegram_first_name || m.telegram_username || "—",
+            level: 1,
+            xp: 0,
+            source: "telegram",
+            telegram_username: m.telegram_username || null,
+            telegram_id: m.telegram_id,
+            is_active: m.is_active ?? true,
+            created_at: m.activated_at,
+          }));
+
+        const unifiedMembers = [...linkedMembers, ...telegramOnlyMembers]
+          .sort((a, b) => b.level - a.level || b.xp - a.xp);
 
         return (
           <div className="space-y-4">
@@ -420,7 +439,7 @@ export default function Admin() {
                       </TableHeader>
                       <TableBody>
                         {unifiedMembers.map((m) => (
-                          <TableRow key={m.user_id}>
+                          <TableRow key={m.row_key}>
                             <TableCell className="text-sm font-medium">{m.name}</TableCell>
                             <TableCell>
                               <Badge variant={m.source === "telegram" ? "default" : "secondary"} className="text-xs">
