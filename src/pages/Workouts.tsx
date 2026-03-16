@@ -225,10 +225,10 @@ export default function Workouts() {
                   </div>
                   <button onClick={() => toggleComplete(idx)}
                     className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${
-                      completed.has(idx) ? "border-primary bg-primary" : "border-border hover:border-primary/50"
+                      completedWorkoutsArr.includes(String(idx)) ? "border-primary bg-primary" : "border-border hover:border-primary/50"
                     }`}
                   >
-                    {completed.has(idx) && <Check className="w-4 h-4 text-primary-foreground" />}
+                    {completedWorkoutsArr.includes(String(idx)) && <Check className="w-4 h-4 text-primary-foreground" />}
                   </button>
                 </div>
                 <div className="p-4 space-y-2">

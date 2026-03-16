@@ -308,10 +308,10 @@ export default function Nutrition() {
                           </button>
                           <button onClick={() => completeMeal(key)}
                             className={`text-xs font-medium px-3 py-1 rounded-full transition-all ${
-                              completedMeals.has(key) ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground hover:bg-primary hover:text-primary-foreground"
+                              completedMealsArr.includes(key) ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground hover:bg-primary hover:text-primary-foreground"
                             }`}
                           >
-                            {completedMeals.has(key) ? "✓" : "Съел"}
+                            {completedMealsArr.includes(key) ? "✓" : "Съел"}
                           </button>
                         </div>
                       </div>
