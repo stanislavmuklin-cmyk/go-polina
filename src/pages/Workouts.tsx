@@ -25,7 +25,7 @@ export default function Workouts() {
   const { profile, addXP } = useUser();
   const [plan, setPlan] = useState<WorkoutDay[]>([]);
   const [loading, setLoading] = useState(false);
-  const [completed, setCompleted] = useState<Set<number>>(new Set());
+  const completedWorkoutsArr = (profile.completedWorkouts ?? []) as string[];
   const [location, setLocation] = useState<"gym" | "home">(profile.workoutLocation || "gym");
   const [isAdminPlan, setIsAdminPlan] = useState(false);
   const [upgrading, setUpgrading] = useState(false);
