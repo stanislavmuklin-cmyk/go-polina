@@ -223,8 +223,8 @@ export default function Nutrition() {
   }, [mealDays, profile, updateProfile, user]);
 
   const completeMeal = (key: string) => {
-    if (!completedMeals.has(key)) {
-      setCompletedMeals((prev) => new Set(prev).add(key));
+    if (!completedMealsArr.includes(key)) {
+      updateProfile({ completedMeals: [...completedMealsArr, key] });
       addXP(10);
     }
   };
