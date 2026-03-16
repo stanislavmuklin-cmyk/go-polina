@@ -211,7 +211,7 @@ export default function Workouts() {
             {plan.map((day, idx) => (
               <motion.div key={idx} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.05 }}
-                className={`bg-card rounded-xl border border-border shadow-soft overflow-hidden ${completed.has(idx) ? "opacity-70" : ""}`}
+                className={`bg-card rounded-xl border border-border shadow-soft overflow-hidden ${completedWorkoutsArr.includes(String(idx)) ? "opacity-70" : ""}`}
               >
                 <div className="flex items-center justify-between p-4 border-b border-border">
                   <div className="flex items-center gap-3">
