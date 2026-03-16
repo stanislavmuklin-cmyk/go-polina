@@ -22,10 +22,10 @@ interface WorkoutDay {
 }
 
 export default function Workouts() {
-  const { profile, addXP } = useUser();
+  const { profile, addXP, updateProfile } = useUser();
   const [plan, setPlan] = useState<WorkoutDay[]>([]);
   const [loading, setLoading] = useState(false);
-  const [completed, setCompleted] = useState<Set<number>>(new Set());
+  const completedWorkoutsArr = (profile.completedWorkouts ?? []) as string[];
   const [location, setLocation] = useState<"gym" | "home">(profile.workoutLocation || "gym");
   const [isAdminPlan, setIsAdminPlan] = useState(false);
   const [upgrading, setUpgrading] = useState(false);
@@ -50,7 +50,6 @@ export default function Workouts() {
 
   const generate = useCallback(async (loc?: "gym" | "home") => {
     setLoading(true);
-    setCompleted(new Set());
     const targetLoc = loc || location;
     try {
       const profileWithLoc = { ...profile, workoutLocation: targetLoc };
@@ -114,11 +113,11 @@ export default function Workouts() {
   };
 
   const toggleComplete = (idx: number) => {
-    setCompleted((prev) => {
-      const next = new Set(prev);
-      if (next.has(idx)) next.delete(idx); else { next.add(idx); addXP(5); }
-      return next;
-    });
+    const key = String(idx);
+    if (!completedWorkoutsArr.includes(key)) {
+      updateProfile({ completedWorkouts: [...completedWorkoutsArr, key] });
+      addXP(5);
+    }
   };
 
   const upgradePlan = async () => {
@@ -212,7 +211,7 @@ export default function Workouts() {
             {plan.map((day, idx) => (
               <motion.div key={idx} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.05 }}
-                className={`bg-card rounded-xl border border-border shadow-soft overflow-hidden ${completed.has(idx) ? "opacity-70" : ""}`}
+                className={`bg-card rounded-xl border border-border shadow-soft overflow-hidden ${completedWorkoutsArr.includes(String(idx)) ? "opacity-70" : ""}`}
               >
                 <div className="flex items-center justify-between p-4 border-b border-border">
                   <div className="flex items-center gap-3">
@@ -226,10 +225,10 @@ export default function Workouts() {
                   </div>
                   <button onClick={() => toggleComplete(idx)}
                     className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${
-                      completed.has(idx) ? "border-primary bg-primary" : "border-border hover:border-primary/50"
+                      completedWorkoutsArr.includes(String(idx)) ? "border-primary bg-primary" : "border-border hover:border-primary/50"
                     }`}
                   >
-                    {completed.has(idx) && <Check className="w-4 h-4 text-primary-foreground" />}
+                    {completedWorkoutsArr.includes(String(idx)) && <Check className="w-4 h-4 text-primary-foreground" />}
                   </button>
                 </div>
                 <div className="p-4 space-y-2">

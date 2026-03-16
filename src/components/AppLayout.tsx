@@ -12,12 +12,12 @@ const navItems = [
   { to: "/workouts", icon: Dumbbell, label: "Тренировки", tourId: "nav-workouts" },
   { to: "/nutrition", icon: Apple, label: "Питание", tourId: "nav-nutrition" },
   { to: "/progress", icon: TrendingUp, label: "Прогресс", tourId: "nav-progress" },
-  { to: "/sos", icon: Zap, label: "SOS", tourId: "nav-sos" },
   { to: "/gamification", icon: Trophy, label: "Достижения", tourId: "nav-gamification" },
   { to: "/showcase", icon: Store, label: "Витрина", tourId: "nav-showcase" },
   { to: "/challenges", icon: Swords, label: "Челленджи", tourId: "nav-challenges" },
   { to: "/analyses", icon: ClipboardList, label: "Анализы", tourId: "nav-analyses" },
   { to: "/ask-ai", icon: MessageCircle, label: "AI-агент", tourId: "nav-ask-ai" },
+  { to: "/sos", icon: Zap, label: "SOS", tourId: "nav-sos" },
   { to: "/faq", icon: HelpCircle, label: "FAQ", tourId: "nav-faq" },
 ];
 

@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const GATEWAY_URL = "https://polza.ai/api/v1/chat/completions";
+const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 function buildSystemPrompt(profile: any): string {
   return `Ты — AI-консультант по здоровью и wellness, работающий на основе доказательной медицины (РКИ, физиология, клиническая нутрициология).
@@ -223,9 +223,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const POLZA_AI_API_KEY = Deno.env.get("POLZA_AI_API_KEY");
-    if (!POLZA_AI_API_KEY) throw new Error("POLZA_AI_API_KEY is not configured");
-    const POLZA_AI_MODEL = Deno.env.get("POLZA_AI_MODEL") || "google/gemini-3.1-flash-lite-preview";
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const { type, profile, extra } = await req.json();
 
@@ -243,11 +242,11 @@ serve(async (req) => {
     const response = await fetch(GATEWAY_URL, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${POLZA_AI_API_KEY}`,
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: POLZA_AI_MODEL,
+        model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },

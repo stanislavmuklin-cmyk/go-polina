@@ -69,7 +69,7 @@ export default function Nutrition() {
   const { profile, addXP, updateProfile } = useUser();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<"meals" | "supplements" | "shopping">("meals");
-  const [completedMeals, setCompletedMeals] = useState<Set<string>>(new Set());
+  const completedMealsArr = (profile.completedMeals ?? []) as string[];
 
   const [mealDays, setMealDays] = useState<MealDay[]>([]);
   const [supplements, setSupplements] = useState<Supplement[]>([]);
@@ -223,8 +223,8 @@ export default function Nutrition() {
   }, [mealDays, profile, updateProfile, user]);
 
   const completeMeal = (key: string) => {
-    if (!completedMeals.has(key)) {
-      setCompletedMeals((prev) => new Set(prev).add(key));
+    if (!completedMealsArr.includes(key)) {
+      updateProfile({ completedMeals: [...completedMealsArr, key] });
       addXP(10);
     }
   };
@@ -288,7 +288,7 @@ export default function Nutrition() {
                   const key = `${selectedDay}-${idx}`;
                   return (
                     <div key={idx}
-                      className={`bg-card rounded-xl border border-border p-4 shadow-soft transition-all ${completedMeals.has(key) ? "opacity-60" : ""}`}
+                      className={`bg-card rounded-xl border border-border p-4 shadow-soft transition-all ${completedMealsArr.includes(key) ? "opacity-60" : ""}`}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-3">
@@ -308,10 +308,10 @@ export default function Nutrition() {
                           </button>
                           <button onClick={() => completeMeal(key)}
                             className={`text-xs font-medium px-3 py-1 rounded-full transition-all ${
-                              completedMeals.has(key) ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground hover:bg-primary hover:text-primary-foreground"
+                              completedMealsArr.includes(key) ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground hover:bg-primary hover:text-primary-foreground"
                             }`}
                           >
-                            {completedMeals.has(key) ? "✓" : "Съел"}
+                            {completedMealsArr.includes(key) ? "✓" : "Съел"}
                           </button>
                         </div>
                       </div>
