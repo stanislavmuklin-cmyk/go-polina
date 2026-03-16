@@ -69,7 +69,7 @@ export default function Nutrition() {
   const { profile, addXP, updateProfile } = useUser();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<"meals" | "supplements" | "shopping">("meals");
-  const [completedMeals, setCompletedMeals] = useState<Set<string>>(new Set());
+  const completedMealsArr = (profile.completedMeals ?? []) as string[];
 
   const [mealDays, setMealDays] = useState<MealDay[]>([]);
   const [supplements, setSupplements] = useState<Supplement[]>([]);
