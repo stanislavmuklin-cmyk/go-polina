@@ -22,7 +22,7 @@ interface WorkoutDay {
 }
 
 export default function Workouts() {
-  const { profile, addXP } = useUser();
+  const { profile, addXP, updateProfile } = useUser();
   const [plan, setPlan] = useState<WorkoutDay[]>([]);
   const [loading, setLoading] = useState(false);
   const completedWorkoutsArr = (profile.completedWorkouts ?? []) as string[];
