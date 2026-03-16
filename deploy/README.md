@@ -23,4 +23,5 @@ The workflow expects this layout:
 ## Notes
 
 - The workflow deploys only the frontend.
-- Self-hosted Supabase on the server is managed separately and is not redeployed by this workflow.
+- The workflow also syncs `supabase/functions/*` into `/opt/supabase-project/volumes/functions` and recreates the `functions` container.
+- The rest of the self-hosted Supabase stack is managed separately and is not redeployed by this workflow.

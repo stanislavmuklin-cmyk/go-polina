@@ -60,3 +60,16 @@ jobs:
             rm -f release.tar.gz
             ln -sfn '${{ secrets.DEPLOY_PATH }}/releases/$RELEASE_ID/dist' '${{ secrets.DEPLOY_PATH }}/current'
           "
+
+      - name: Upload edge functions
+        run: |
+          ssh "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "mkdir -p /opt/supabase-project/volumes/functions"
+          scp -r supabase/functions/* "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/supabase-project/volumes/functions/"
+
+      - name: Restart edge functions
+        run: |
+          ssh "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "
+            set -eu
+            cd /opt/supabase-project
+            docker compose up -d --force-recreate --no-deps functions
+          "

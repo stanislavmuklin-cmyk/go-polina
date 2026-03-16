@@ -109,6 +109,12 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    const { data: existingMember } = await supabaseAdmin
+      .from("telegram_members")
+      .select("*")
+      .eq("telegram_id", telegramId)
+      .maybeSingle();
+
     // --- Auto-check membership via Telegram Bot API ---
     const chatId = Deno.env.get("TELEGRAM_CHAT_ID");
     let isMemberInChannel = false;
@@ -132,18 +138,19 @@ Deno.serve(async (req) => {
           { onConflict: "telegram_id" }
         );
       } else {
-        // Check if exists and deactivate
-        const { data: existing } = await supabaseAdmin
-          .from("telegram_members")
-          .select("id, is_active")
-          .eq("telegram_id", telegramId)
-          .single();
-
-        if (existing && existing.is_active) {
+        // Preserve manually activated members from the admin panel even if
+        // the Telegram membership check is unavailable or does not confirm access.
+        if (existingMember?.is_active) {
           await supabaseAdmin
             .from("telegram_members")
-            .update({ is_active: false, deactivated_at: new Date().toISOString() })
+            .update({
+              telegram_username: username || existingMember.telegram_username || null,
+              telegram_first_name: firstName || existingMember.telegram_first_name || null,
+            })
             .eq("telegram_id", telegramId);
+          console.log(`Telegram membership fallback: user ${telegramId} allowed by active DB record`);
+        } else {
+          console.log(`Telegram membership check denied access for user ${telegramId}`);
         }
       }
     }
