@@ -43,8 +43,12 @@ async function validateTelegramInitData(initData: string, botToken: string): Pro
   return result;
 }
 
+type TelegramMembershipResult =
+  | { ok: true; status: string; isMember: boolean }
+  | { ok: false; error: string };
+
 // Check if user is a member of the Telegram channel/group via Bot API
-async function checkTelegramMembership(botToken: string, chatId: string, userId: number): Promise<boolean> {
+async function checkTelegramMembership(botToken: string, chatId: string, userId: number): Promise<TelegramMembershipResult> {
   try {
     const url = `https://api.telegram.org/bot${botToken}/getChatMember?chat_id=${encodeURIComponent(chatId)}&user_id=${userId}`;
     const res = await fetch(url);
@@ -52,15 +56,19 @@ async function checkTelegramMembership(botToken: string, chatId: string, userId:
 
     if (!data.ok) {
       console.error("getChatMember error:", data);
-      return false;
+      return { ok: false, error: data.description || "Telegram API error" };
     }
 
-    const status = data.result?.status;
+    const status = data.result?.status || "unknown";
     // member, administrator, creator are valid; left, kicked, restricted (with is_member=false) are not
-    return ["member", "administrator", "creator"].includes(status);
+    return {
+      ok: true,
+      status,
+      isMember: ["member", "administrator", "creator"].includes(status),
+    };
   } catch (err) {
     console.error("checkTelegramMembership fetch error:", err);
-    return false;
+    return { ok: false, error: err instanceof Error ? err.message : "Network error" };
   }
 }
 
@@ -117,14 +125,14 @@ Deno.serve(async (req) => {
 
     // --- Auto-check membership via Telegram Bot API ---
     const chatId = Deno.env.get("TELEGRAM_CHAT_ID");
-    let isMemberInChannel = false;
+    let membershipResult: TelegramMembershipResult | null = null;
 
     if (chatId) {
-      isMemberInChannel = await checkTelegramMembership(botToken, chatId, telegramId);
-      console.log(`Telegram membership check: user ${telegramId} in chat ${chatId} = ${isMemberInChannel}`);
+      membershipResult = await checkTelegramMembership(botToken, chatId, telegramId);
+      console.log(`Telegram membership check result for user ${telegramId} in chat ${chatId}: ${JSON.stringify(membershipResult)}`);
 
       // Sync membership status to telegram_members table
-      if (isMemberInChannel) {
+      if (membershipResult.ok && membershipResult.isMember) {
         // Upsert as active member
         await supabaseAdmin.from("telegram_members").upsert(
           {
@@ -138,9 +146,23 @@ Deno.serve(async (req) => {
           { onConflict: "telegram_id" }
         );
       } else {
-        // Preserve manually activated members from the admin panel even if
-        // the Telegram membership check is unavailable or does not confirm access.
-        if (existingMember?.is_active) {
+        const deniedStatuses = ["left", "kicked", "restricted"];
+
+        // If Telegram explicitly says the user is no longer a member, revoke access.
+        if (membershipResult.ok && deniedStatuses.includes(membershipResult.status)) {
+          await supabaseAdmin
+            .from("telegram_members")
+            .update({
+              is_active: false,
+              deactivated_at: new Date().toISOString(),
+              telegram_username: username || existingMember?.telegram_username || null,
+              telegram_first_name: firstName || existingMember?.telegram_first_name || null,
+            })
+            .eq("telegram_id", telegramId);
+          console.log(`Telegram membership auto-revoked: user ${telegramId}, status=${membershipResult.status}`);
+        // Preserve manually activated members from the admin panel only when the
+        // membership check could not complete reliably.
+        } else if (existingMember?.is_active) {
           await supabaseAdmin
             .from("telegram_members")
             .update({
