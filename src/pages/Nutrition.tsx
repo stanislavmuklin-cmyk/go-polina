@@ -288,7 +288,7 @@ export default function Nutrition() {
                   const key = `${selectedDay}-${idx}`;
                   return (
                     <div key={idx}
-                      className={`bg-card rounded-xl border border-border p-4 shadow-soft transition-all ${completedMeals.has(key) ? "opacity-60" : ""}`}
+                      className={`bg-card rounded-xl border border-border p-4 shadow-soft transition-all ${completedMealsArr.includes(key) ? "opacity-60" : ""}`}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-3">
