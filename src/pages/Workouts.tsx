@@ -50,7 +50,6 @@ export default function Workouts() {
 
   const generate = useCallback(async (loc?: "gym" | "home") => {
     setLoading(true);
-    setCompleted(new Set());
     const targetLoc = loc || location;
     try {
       const profileWithLoc = { ...profile, workoutLocation: targetLoc };
