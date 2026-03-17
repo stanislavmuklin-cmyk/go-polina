@@ -307,8 +307,8 @@ export default function Nutrition() {
         {activeTab === "meals" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
             {/* Day selector */}
-            <div className="flex items-center gap-2">
-              <div className="flex gap-1.5 overflow-x-auto pb-1 flex-1">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="flex gap-1.5 overflow-x-auto pb-1 sm:flex-1">
                 {mealDays.map((d, i) => (
                   <button key={i} onClick={() => setSelectedDay(i)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
@@ -322,7 +322,7 @@ export default function Nutrition() {
               <button
                 onClick={regenerateWeek}
                 disabled={regeneratingWeek || loadingMeals || initialLoading}
-                className="shrink-0 inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                className="order-first sm:order-none shrink-0 inline-flex items-center justify-center gap-2 self-start rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${regeneratingWeek ? "animate-spin" : ""}`} />
                 Обновить меню на неделю
@@ -365,15 +365,15 @@ export default function Nutrition() {
                           </button>
                           <button onClick={() => completeMeal(key)}
                             disabled={savingMealKey === key || completedMeals.has(key)}
-                            className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${
+                            className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all ${
                               completedMeals.has(key) ? "border-primary bg-primary" : "border-border hover:border-primary/50"
                             }`}
                             title={completedMeals.has(key) ? "Прием пищи отмечен" : "Отметить прием пищи"}
                           >
                             {savingMealKey === key ? (
-                              <RefreshCw className="w-4 h-4 text-muted-foreground animate-spin" />
+                              <RefreshCw className="w-3.5 h-3.5 text-muted-foreground animate-spin" />
                             ) : (
-                              completedMeals.has(key) && <Check className="w-4 h-4 text-primary-foreground" />
+                              completedMeals.has(key) && <Check className="w-3.5 h-3.5 text-primary-foreground" />
                             )}
                           </button>
                         </div>
