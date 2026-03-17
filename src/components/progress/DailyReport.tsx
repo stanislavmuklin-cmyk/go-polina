@@ -1,8 +1,11 @@
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
-import { ClipboardCheck, Moon, Footprints } from "lucide-react";
-import { useState } from "react";
+import { ClipboardCheck, Loader2, Moon, Footprints } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useUser } from "@/context/UserContext";
+import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
 
@@ -24,7 +27,8 @@ const sleepHourLabels: Record<number, string> = {
 };
 
 export default function DailyReport() {
-  const { profile, updateProfile, addXP } = useUser();
+  const { profile, setProfile } = useUser();
+  const { user } = useAuth();
   const today = format(new Date(), "yyyy-MM-dd");
   const alreadySubmitted = profile.dailyReports.some(r => r.date === today);
 
@@ -34,12 +38,50 @@ export default function DailyReport() {
   const [sleep, setSleep] = useState(7);
   const [steps, setSteps] = useState("");
   const [submitted, setSubmitted] = useState(alreadySubmitted);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSubmit = () => {
+  useEffect(() => {
+    setSubmitted(alreadySubmitted);
+  }, [alreadySubmitted]);
+
+  const handleSubmit = async () => {
+    if (!user || submitted || isSaving) return;
+
     const entry = { date: today, workoutDone, energy, nutrition: nutritionScore, sleep, steps: steps ? parseInt(steps) : 0 };
     const updatedReports = [...profile.dailyReports.filter(r => r.date !== today), entry];
-    updateProfile({ dailyReports: updatedReports });
-    addXP(5);
+    const newXP = profile.xp + 5;
+    const newLevel = Math.floor(newXP / 100) + 1;
+
+    setIsSaving(true);
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        daily_reports: updatedReports,
+        xp: newXP,
+        level: newLevel,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", user.id);
+
+    setIsSaving(false);
+
+    if (error) {
+      console.error("Daily report save error:", error);
+      toast({
+        title: "Не удалось сохранить отчёт",
+        description: "Попробуйте ещё раз. Если ошибка повторится, сообщите администратору.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setProfile((prev) => ({
+      ...prev,
+      dailyReports: updatedReports,
+      xp: newXP,
+      level: newLevel,
+    }));
     setSubmitted(true);
   };
 
@@ -104,9 +146,11 @@ export default function DailyReport() {
 
           <button
             onClick={handleSubmit}
+            disabled={isSaving}
             className="w-full py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
           >
-            <ClipboardCheck className="w-4 h-4" /> Отметить день (+5 баллов)
+            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <ClipboardCheck className="w-4 h-4" />}
+            {isSaving ? "Сохраняем..." : "Отметить день (+5 баллов)"}
           </button>
         </>
       )}

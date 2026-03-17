@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode, Dispatch, SetStateAction } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -65,7 +65,7 @@ const defaultProfile: UserProfile = {
 
 interface UserContextType {
   profile: UserProfile;
-  setProfile: (p: UserProfile) => void;
+  setProfile: Dispatch<SetStateAction<UserProfile>>;
   updateProfile: (partial: Partial<UserProfile>) => void;
   isOnboarded: boolean;
   setIsOnboarded: (v: boolean) => void;
