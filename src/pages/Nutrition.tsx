@@ -66,10 +66,11 @@ async function saveNutritionToDB(userId: string, field: "meals" | "supplements" 
 }
 
 export default function Nutrition() {
-  const { profile, addXP, updateProfile } = useUser();
+  const { profile, setProfile, updateProfile } = useUser();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<"meals" | "supplements" | "shopping">("meals");
   const [completedMeals, setCompletedMeals] = useState<Set<string>>(new Set());
+  const [savingMealKey, setSavingMealKey] = useState<string | null>(null);
 
   const [mealDays, setMealDays] = useState<MealDay[]>([]);
   const [supplements, setSupplements] = useState<Supplement[]>([]);
@@ -189,6 +190,10 @@ export default function Nutrition() {
     }
   }, [activeTab, mealDays.length, initialLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    setCompletedMeals(new Set(profile.completedMeals ?? []));
+  }, [profile.completedMeals]);
+
   const regenerateMeal = useCallback(async (dayIdx: number, mealIdx: number) => {
     if (!user) return;
     const currentToday = new Date().toISOString().slice(0, 10);
@@ -222,11 +227,40 @@ export default function Nutrition() {
     }
   }, [mealDays, profile, updateProfile, user]);
 
-  const completeMeal = (key: string) => {
-    if (!completedMeals.has(key)) {
-      setCompletedMeals((prev) => new Set(prev).add(key));
-      addXP(10);
+  const completeMeal = async (key: string) => {
+    if (!user || completedMeals.has(key) || savingMealKey === key) return;
+
+    const updatedMeals = [...(profile.completedMeals || []), key];
+    const newXP = profile.xp + 10;
+    const newLevel = Math.floor(newXP / 100) + 1;
+
+    setSavingMealKey(key);
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        completed_meals: updatedMeals,
+        xp: newXP,
+        level: newLevel,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", user.id);
+
+    setSavingMealKey(null);
+
+    if (error) {
+      console.error("Meal completion save error:", error);
+      toast.error("Не удалось сохранить отметку о приёме пищи");
+      return;
     }
+
+    setCompletedMeals(new Set(updatedMeals));
+    setProfile((prev) => ({
+      ...prev,
+      completedMeals: updatedMeals,
+      xp: newXP,
+      level: newLevel,
+    }));
   };
 
   const currentDay = mealDays[selectedDay];
@@ -307,11 +341,12 @@ export default function Nutrition() {
                             <RefreshCw className="w-3.5 h-3.5" />
                           </button>
                           <button onClick={() => completeMeal(key)}
+                            disabled={savingMealKey === key || completedMeals.has(key)}
                             className={`text-xs font-medium px-3 py-1 rounded-full transition-all ${
                               completedMeals.has(key) ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground hover:bg-primary hover:text-primary-foreground"
                             }`}
                           >
-                            {completedMeals.has(key) ? "✓" : "Съел"}
+                            {savingMealKey === key ? "..." : completedMeals.has(key) ? "✓" : "Съел"}
                           </button>
                         </div>
                       </div>

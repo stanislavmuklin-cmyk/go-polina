@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { AppLayout } from "@/components/AppLayout";
 import { useUser } from "@/context/UserContext";
+import { useAuth } from "@/context/AuthContext";
 import { Check, Dumbbell, RefreshCw, Home, Building2, Sparkles, Lock } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { generateContent } from "@/lib/ai";
@@ -22,10 +23,12 @@ interface WorkoutDay {
 }
 
 export default function Workouts() {
-  const { profile, addXP } = useUser();
+  const { profile, setProfile } = useUser();
+  const { user } = useAuth();
   const [plan, setPlan] = useState<WorkoutDay[]>([]);
   const [loading, setLoading] = useState(false);
   const [completed, setCompleted] = useState<Set<number>>(new Set());
+  const [savingWorkoutKey, setSavingWorkoutKey] = useState<string | null>(null);
   const [location, setLocation] = useState<"gym" | "home">(profile.workoutLocation || "gym");
   const [isAdminPlan, setIsAdminPlan] = useState(false);
   const [upgrading, setUpgrading] = useState(false);
@@ -108,17 +111,66 @@ export default function Workouts() {
     loadForLocation(location);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    const completedKeys = new Set(
+      (profile.completedWorkouts || [])
+        .filter((key) => key.startsWith(`${location}-`))
+        .map((key) => Number(key.split("-").at(-1)))
+        .filter((idx) => !Number.isNaN(idx)),
+    );
+    setCompleted(completedKeys);
+  }, [location, profile.completedWorkouts]);
+
   const switchLocation = (loc: "gym" | "home") => {
     setLocation(loc);
     loadForLocation(loc);
   };
 
-  const toggleComplete = (idx: number) => {
+  const toggleComplete = async (idx: number) => {
+    if (!user) return;
+
+    const key = `${location}-${idx}`;
+    if (savingWorkoutKey === key) return;
+
+    const wasCompleted = completed.has(idx);
+    const updatedWorkouts = wasCompleted
+      ? (profile.completedWorkouts || []).filter((item) => item !== key)
+      : [...(profile.completedWorkouts || []), key];
+    const newXP = wasCompleted ? profile.xp : profile.xp + 5;
+    const newLevel = Math.floor(newXP / 100) + 1;
+
+    setSavingWorkoutKey(key);
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        completed_workouts: updatedWorkouts,
+        xp: newXP,
+        level: newLevel,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", user.id);
+
+    setSavingWorkoutKey(null);
+
+    if (error) {
+      console.error("Workout completion save error:", error);
+      toast.error("Не удалось сохранить отметку о тренировке");
+      return;
+    }
+
     setCompleted((prev) => {
       const next = new Set(prev);
-      if (next.has(idx)) next.delete(idx); else { next.add(idx); addXP(5); }
+      if (wasCompleted) next.delete(idx);
+      else next.add(idx);
       return next;
     });
+    setProfile((prev) => ({
+      ...prev,
+      completedWorkouts: updatedWorkouts,
+      xp: newXP,
+      level: newLevel,
+    }));
   };
 
   const upgradePlan = async () => {
@@ -225,11 +277,16 @@ export default function Workouts() {
                     </div>
                   </div>
                   <button onClick={() => toggleComplete(idx)}
+                    disabled={savingWorkoutKey === `${location}-${idx}`}
                     className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${
                       completed.has(idx) ? "border-primary bg-primary" : "border-border hover:border-primary/50"
                     }`}
                   >
-                    {completed.has(idx) && <Check className="w-4 h-4 text-primary-foreground" />}
+                    {savingWorkoutKey === `${location}-${idx}` ? (
+                      <RefreshCw className="w-4 h-4 text-muted-foreground animate-spin" />
+                    ) : (
+                      completed.has(idx) && <Check className="w-4 h-4 text-primary-foreground" />
+                    )}
                   </button>
                 </div>
                 <div className="p-4 space-y-2">
