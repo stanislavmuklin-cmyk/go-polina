@@ -230,7 +230,11 @@ export default function Nutrition() {
     setRegeneratingWeek(true);
     try {
       toast.info("Обновляем меню на неделю...");
-      const data = await generateContent("meals", profile, { regenerateWeek: true });
+      const data = await generateContent("meals", profile, {
+        regenerateWeek: true,
+        currentPlan: mealDays,
+        completedMealKeys: Array.from(completedMeals),
+      });
       if (data?.days) {
         setMealDays(data.days);
         setSelectedDay(0);
@@ -242,7 +246,7 @@ export default function Nutrition() {
     } finally {
       setRegeneratingWeek(false);
     }
-  }, [profile, user]);
+  }, [completedMeals, mealDays, profile, user]);
 
   const completeMeal = async (key: string) => {
     if (!user || completedMeals.has(key) || savingMealKey === key) return;

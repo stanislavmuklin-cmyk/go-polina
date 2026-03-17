@@ -255,6 +255,46 @@ const userPrompts: Record<string, (profile?: any, extra?: any) => string> = {
 - Сделай блюдо реалистичным, бытовым и разнообразным.`;
     }
 
+    if (extra?.regenerateWeek && Array.isArray(extra?.currentPlan)) {
+      const targetCalories = calcTargetCalories(profile || {});
+      const completedMealKeys = new Set(Array.isArray(extra.completedMealKeys) ? extra.completedMealKeys : []);
+      const lockedPlan = extra.currentPlan.map((day: any, dayIdx: number) => ({
+        dayName: day?.dayName,
+        meals: (day?.meals || []).map((meal: any, mealIdx: number) => ({
+          mealIndex: mealIdx,
+          locked: completedMealKeys.has(`${dayIdx}-${mealIdx}`),
+          time: meal?.time,
+          meal: meal?.meal,
+          items: meal?.items,
+          calories: meal?.calories,
+          protein: meal?.protein,
+          fat: meal?.fat,
+          carbs: meal?.carbs,
+        })),
+      }));
+
+      return `Обнови недельный план питания с учетом уже отмеченных приёмов пищи.
+
+Целевой ориентир по калориям на день: около ${targetCalories} ккал.
+Ниже текущий недельный план. Для каждого приёма пищи указано поле locked:
+- locked=true означает, что этот приём пищи уже отмечен пользователем как съеденный, его нельзя менять
+- locked=false означает, что этот приём пищи можно сгенерировать заново
+
+Текущий план:
+${JSON.stringify(lockedPlan)}
+
+Требования:
+- Верни ПОЛНЫЙ недельный план на 7 дней в стандартной JSON-структуре days.
+- Для каждого приёма пищи с locked=true сохрани без изменений: time, meal, items, calories, protein, fat, carbs.
+- Генерируй заново только приёмы пищи с locked=false.
+- Балансируй новые блюда так, чтобы общая калорийность каждого дня была близка к целевой норме, с учетом уже заблокированных приёмов пищи.
+- Сохраняй типы приёмов пищи и их порядок в течение дня.
+- Не превращай все приёмы пищи в завтраки и не меняй meal/time у заблокированных позиций.
+- Делай блюда разнообразными, не повторяй однотипные комбинации без необходимости.
+- Каждый элемент в поле items должен содержать точное количество в граммах, миллилитрах или штуках.
+- В поле dayName указывай только день недели (Пн, Вт, Ср, Чт, Пт, Сб, Вс).`;
+    }
+
     const targetCalories = calcTargetCalories(profile || {});
 
     return `Составь 7-дневный план питания. Для каждого дня дай 4-5 приёмов пищи с ингредиентами, калориями и макронутриентами (белки, жиры, углеводы). Учитывай мою цель, диету и ограничения.
