@@ -31,8 +31,22 @@ function calcTargetCalories(profile: any) {
   return tdee;
 }
 
-function buildSystemPrompt(profile: any): string {
+function calcTargetMacros(profile: any) {
   const targetCalories = calcTargetCalories(profile);
+  const protein = Math.round(profile.weight * (profile.goal === "muscle" ? 2.2 : 1.8));
+  const fat = Math.round((targetCalories * 0.25) / 9);
+  const carbs = Math.round((targetCalories - protein * 4 - fat * 9) / 4);
+
+  return {
+    targetCalories,
+    protein,
+    fat,
+    carbs,
+  };
+}
+
+function buildSystemPrompt(profile: any): string {
+  const { targetCalories, protein, fat, carbs } = calcTargetMacros(profile);
 
   return `Ты — AI-консультант по здоровью и wellness, работающий на основе доказательной медицины (РКИ, физиология, клиническая нутрициология).
 
@@ -49,6 +63,9 @@ function buildSystemPrompt(profile: any): string {
 - Отслеживание цикла: ${profile.trackCycle ? "да" : "нет"}
 - Жалобы: ${profile.complaints || "нет"}
 - Целевая норма калорий на день: ${targetCalories} ккал
+- Целевая норма белка на день: ${protein} г
+- Целевая норма жиров на день: ${fat} г
+- Целевая норма углеводов на день: ${carbs} г
 
 Все ответы давай на русском языке. Будь конкретным и практичным.`;
 }
@@ -256,7 +273,7 @@ const userPrompts: Record<string, (profile?: any, extra?: any) => string> = {
     }
 
     if (extra?.regenerateWeek && Array.isArray(extra?.currentPlan)) {
-      const targetCalories = calcTargetCalories(profile || {});
+      const { targetCalories, protein, fat, carbs } = calcTargetMacros(profile || {});
       const completedMealKeys = new Set(Array.isArray(extra.completedMealKeys) ? extra.completedMealKeys : []);
       const lockedPlan = extra.currentPlan.map((day: any, dayIdx: number) => ({
         dayName: day?.dayName,
@@ -276,6 +293,9 @@ const userPrompts: Record<string, (profile?: any, extra?: any) => string> = {
       return `Обнови недельный план питания с учетом уже отмеченных приёмов пищи.
 
 Целевой ориентир по калориям на день: около ${targetCalories} ккал.
+Целевой ориентир по белкам на день: около ${protein} г.
+Целевой ориентир по жирам на день: около ${fat} г.
+Целевой ориентир по углеводам на день: около ${carbs} г.
 Ниже текущий недельный план. Для каждого приёма пищи указано поле locked:
 - locked=true означает, что этот приём пищи уже отмечен пользователем как съеденный, его нельзя менять
 - locked=false означает, что этот приём пищи можно сгенерировать заново
@@ -287,7 +307,7 @@ ${JSON.stringify(lockedPlan)}
 - Верни ПОЛНЫЙ недельный план на 7 дней в стандартной JSON-структуре days.
 - Для каждого приёма пищи с locked=true сохрани без изменений: time, meal, items, calories, protein, fat, carbs.
 - Генерируй заново только приёмы пищи с locked=false.
-- Балансируй новые блюда так, чтобы общая калорийность каждого дня была близка к целевой норме, с учетом уже заблокированных приёмов пищи.
+- Балансируй новые блюда так, чтобы суммарные калории и БЖУ каждого дня были близки к целевым нормам, с учетом уже заблокированных приёмов пищи.
 - Сохраняй типы приёмов пищи и их порядок в течение дня.
 - Не превращай все приёмы пищи в завтраки и не меняй meal/time у заблокированных позиций.
 - Делай блюда разнообразными, не повторяй однотипные комбинации без необходимости.
@@ -295,12 +315,15 @@ ${JSON.stringify(lockedPlan)}
 - В поле dayName указывай только день недели (Пн, Вт, Ср, Чт, Пт, Сб, Вс).`;
     }
 
-    const targetCalories = calcTargetCalories(profile || {});
+    const { targetCalories, protein, fat, carbs } = calcTargetMacros(profile || {});
 
     return `Составь 7-дневный план питания. Для каждого дня дай 4-5 приёмов пищи с ингредиентами, калориями и макронутриентами (белки, жиры, углеводы). Учитывай мою цель, диету и ограничения.
 
 Целевой ориентир по калориям на день: около ${targetCalories} ккал.
-Старайся, чтобы суммарная калорийность каждого дня была близка к этой норме, с разумным бытовым отклонением, а не случайной.
+Целевой ориентир по белкам на день: около ${protein} г.
+Целевой ориентир по жирам на день: около ${fat} г.
+Целевой ориентир по углеводам на день: около ${carbs} г.
+Старайся, чтобы суммарные калории и БЖУ каждого дня были близки к этим нормам, с разумным бытовым отклонением, а не случайными.
 
 ВАЖНО: каждый элемент в поле items должен содержать не просто название продукта, а точное количество в граммах, миллилитрах или штуках. Пиши в формате вроде: 'Овсяные хлопья — 60 г', 'Яйца — 2 шт', 'Творог 5% — 150 г', 'Оливковое масло — 5 мл'. Не пиши ингредиенты без количества.
 Делай меню разнообразным по дням и приёмам пищи: не повторяй одни и те же блюда, базовые сочетания и шаблоны без необходимости. Не своди меню к постоянным завтракам из каши, яиц или творога, если на то нет явной причины.
