@@ -123,6 +123,7 @@ const toolSchemas: Record<string, any> = {
                 items: {
                   type: "object",
                   properties: {
+                    mealIndex: { type: "number" },
                     time: { type: "string" },
                     meal: { type: "string" },
                     items: {
@@ -270,6 +271,33 @@ const userPrompts: Record<string, (profile?: any, extra?: any) => string> = {
 - Учитывай цель, диету и ограничения пользователя.
 - Каждый элемент в поле items должен содержать точное количество в граммах, миллилитрах или штуках.
 - Сделай блюдо реалистичным, бытовым и разнообразным.`;
+    }
+
+    if (extra?.regenerateDay && extra?.dayContext && Array.isArray(extra?.unlockedMeals)) {
+      return `Обнови только НЕОТМЕЧЕННЫЕ приёмы пищи для одного конкретного дня.
+
+День недели: ${extra.dayContext.dayName}
+Уже зафиксированные и съеденные приёмы пищи, которые менять нельзя:
+${JSON.stringify(extra.lockedMeals || [])}
+
+Приёмы пищи, которые нужно сгенерировать заново:
+${JSON.stringify(extra.unlockedMeals || [])}
+
+Остаток целевой нормы на оставшиеся приёмы пищи этого дня:
+- Калории: около ${extra.remainingCalories} ккал
+- Белки: около ${extra.remainingProtein} г
+- Жиры: около ${extra.remainingFat} г
+- Углеводы: около ${extra.remainingCarbs} г
+
+Требования:
+- Верни только один день в массиве days.
+- Внутри days[0].meals верни ТОЛЬКО те приёмы пищи, которые нужно сгенерировать заново.
+- Для каждого возвращаемого приёма пищи ОБЯЗАТЕЛЬНО укажи mealIndex, соответствующий исходной позиции.
+- Для каждого возвращаемого приёма пищи сохрани его исходный тип meal и время time.
+- Не возвращай зафиксированные блюда.
+- Суммарно новые блюда должны по возможности закрывать остаток калорий и БЖУ этого дня.
+- Каждый элемент в поле items должен содержать точное количество в граммах, миллилитрах или штуках.
+- Избегай однотипных блюд и повторов.`;
     }
 
     if (extra?.regenerateWeek && Array.isArray(extra?.currentPlan)) {

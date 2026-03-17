@@ -40,6 +40,34 @@ interface ShoppingCategory {
 
 const dayNames = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 
+function calcBMR(gender: string, weight: number, height: number, age: number) {
+  if (gender === "female") return 10 * weight + 6.25 * height - 5 * age - 161;
+  return 10 * weight + 6.25 * height - 5 * age + 5;
+}
+
+function calcTDEE(bmr: number, level: string) {
+  const multipliers: Record<string, number> = { beginner: 1.375, intermediate: 1.55, advanced: 1.725 };
+  return Math.round(bmr * (multipliers[level] || 1.375));
+}
+
+function calcTargetCalories(profile: any) {
+  const bmr = Math.round(calcBMR(profile.gender, profile.weight, profile.height, profile.age));
+  const tdee = calcTDEE(bmr, profile.fitnessLevel);
+
+  if (profile.goal === "fat-loss") return Math.round(tdee * 0.8);
+  if (profile.goal === "muscle") return Math.round(tdee * 1.1);
+  return tdee;
+}
+
+function calcTargetMacros(profile: any) {
+  const targetCalories = calcTargetCalories(profile);
+  const protein = Math.round(profile.weight * (profile.goal === "muscle" ? 2.2 : 1.8));
+  const fat = Math.round((targetCalories * 0.25) / 9);
+  const carbs = Math.round((targetCalories - protein * 4 - fat * 9) / 4);
+
+  return { targetCalories, protein, fat, carbs };
+}
+
 // Helper to save nutrition data to DB and localStorage
 async function saveNutritionToDB(userId: string, field: "meals" | "supplements" | "shopping", value: any) {
   // Save to localStorage as cache
@@ -230,17 +258,85 @@ export default function Nutrition() {
     setRegeneratingWeek(true);
     try {
       toast.info("Обновляем меню на неделю...");
-      const data = await generateContent("meals", profile, {
-        regenerateWeek: true,
-        currentPlan: mealDays,
-        completedMealKeys: Array.from(completedMeals),
-      });
-      if (data?.days) {
-        setMealDays(data.days);
-        setSelectedDay(0);
-        await saveNutritionToDB(user.id, "meals", data.days);
-        toast.success("Меню на неделю обновлено!");
+      const { targetCalories, protein, fat, carbs } = calcTargetMacros(profile);
+
+      const updatedDays: MealDay[] = [];
+
+      for (const [dayIdx, currentDay] of mealDays.entries()) {
+        const lockedMeals = currentDay.meals
+          .map((meal, mealIdx) => ({ ...meal, mealIndex: mealIdx }))
+          .filter((meal) => completedMeals.has(`${dayIdx}-${meal.mealIndex}`));
+
+        if (lockedMeals.length === currentDay.meals.length) {
+          updatedDays.push(currentDay);
+          continue;
+        }
+
+        const unlockedMeals = currentDay.meals
+          .map((meal, mealIdx) => ({ mealIndex: mealIdx, meal: meal.meal, time: meal.time }))
+          .filter((meal) => !completedMeals.has(`${dayIdx}-${meal.mealIndex}`));
+
+        const lockedTotals = lockedMeals.reduce(
+          (acc, meal) => ({
+            calories: acc.calories + (meal.calories || 0),
+            protein: acc.protein + (meal.protein || 0),
+            fat: acc.fat + (meal.fat || 0),
+            carbs: acc.carbs + (meal.carbs || 0),
+          }),
+          { calories: 0, protein: 0, fat: 0, carbs: 0 },
+        );
+
+        const data = await generateContent("meals", profile, {
+          regenerateDay: true,
+          dayContext: currentDay,
+          dayIndex: dayIdx,
+          lockedMeals,
+          unlockedMeals,
+          remainingCalories: Math.max(targetCalories - lockedTotals.calories, 0),
+          remainingProtein: Math.max(protein - lockedTotals.protein, 0),
+          remainingFat: Math.max(fat - lockedTotals.fat, 0),
+          remainingCarbs: Math.max(carbs - lockedTotals.carbs, 0),
+        });
+
+        const regeneratedMeals = data?.days?.[0]?.meals || [];
+        const regeneratedByIndex = new Map(
+          regeneratedMeals
+            .filter((meal: any) => typeof meal.mealIndex === "number")
+            .map((meal: any) => [meal.mealIndex, meal]),
+        );
+
+        const mergedMeals = currentDay.meals.map((meal, mealIdx) => {
+          if (completedMeals.has(`${dayIdx}-${mealIdx}`)) {
+            return meal;
+          }
+
+          const regenerated = regeneratedByIndex.get(mealIdx);
+          if (!regenerated) {
+            return meal;
+          }
+
+          return {
+            time: regenerated.time,
+            meal: regenerated.meal,
+            items: regenerated.items,
+            calories: regenerated.calories,
+            protein: regenerated.protein,
+            fat: regenerated.fat,
+            carbs: regenerated.carbs,
+            prepTime: regenerated.prepTime,
+          };
+        });
+
+        updatedDays.push({
+          dayName: currentDay.dayName,
+          meals: mergedMeals,
+        });
       }
+
+      setMealDays(updatedDays);
+      setSelectedDay(0);
+      await saveNutritionToDB(user.id, "meals", updatedDays);
+      toast.success("Меню на неделю обновлено!");
     } catch (e: any) {
       toast.error(e.message || "Ошибка обновления недельного меню");
     } finally {
