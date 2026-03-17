@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { AppLayout } from "@/components/AppLayout";
 import { useUser } from "@/context/UserContext";
 import { useAuth } from "@/context/AuthContext";
-import { Apple, ShoppingCart, Clock, Pill, AlertTriangle, RefreshCw } from "lucide-react";
+import { Apple, ShoppingCart, Clock, Pill, AlertTriangle, RefreshCw, Check } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { generateContent } from "@/lib/ai";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -40,8 +40,6 @@ interface ShoppingCategory {
 
 const dayNames = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 
-const MAX_MEAL_REGEN_PER_DAY = 3;
-
 // Helper to save nutrition data to DB and localStorage
 async function saveNutritionToDB(userId: string, field: "meals" | "supplements" | "shopping", value: any) {
   // Save to localStorage as cache
@@ -66,11 +64,13 @@ async function saveNutritionToDB(userId: string, field: "meals" | "supplements" 
 }
 
 export default function Nutrition() {
-  const { profile, setProfile, updateProfile } = useUser();
+  const { profile, setProfile } = useUser();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<"meals" | "supplements" | "shopping">("meals");
   const [completedMeals, setCompletedMeals] = useState<Set<string>>(new Set());
   const [savingMealKey, setSavingMealKey] = useState<string | null>(null);
+  const [regeneratingMealKey, setRegeneratingMealKey] = useState<string | null>(null);
+  const [regeneratingWeek, setRegeneratingWeek] = useState(false);
 
   const [mealDays, setMealDays] = useState<MealDay[]>([]);
   const [supplements, setSupplements] = useState<Supplement[]>([]);
@@ -83,10 +83,6 @@ export default function Nutrition() {
   const [initialLoading, setInitialLoading] = useState(true);
 
   const dataLoadedRef = useRef(false);
-
-  const today = new Date().toISOString().slice(0, 10);
-  const regenCount = profile.mealRegenResetDate === today ? (profile.mealRegenCount ?? 0) : 0;
-  const regenRemaining = MAX_MEAL_REGEN_PER_DAY - regenCount;
 
   // Load all nutrition data from DB on mount
   useEffect(() => {
@@ -196,20 +192,20 @@ export default function Nutrition() {
 
   const regenerateMeal = useCallback(async (dayIdx: number, mealIdx: number) => {
     if (!user) return;
-    const currentToday = new Date().toISOString().slice(0, 10);
-    const currentCount = profile.mealRegenResetDate === currentToday ? (profile.mealRegenCount ?? 0) : 0;
-    if (currentCount >= MAX_MEAL_REGEN_PER_DAY) {
-      toast.error(`Лимит замен блюд на сегодня исчерпан (${MAX_MEAL_REGEN_PER_DAY}/${MAX_MEAL_REGEN_PER_DAY})`);
-      return;
-    }
+
+    const mealKey = `${dayIdx}-${mealIdx}`;
     const day = mealDays[dayIdx];
+    const currentMeal = day?.meals[mealIdx];
     if (!day) return;
+
+    setRegeneratingMealKey(mealKey);
     try {
       toast.info("Обновляем блюдо...");
       const data = await generateContent("meals", profile, {
         regenerateSingle: true,
         dayContext: day,
         mealIndex: mealIdx,
+        currentMeal,
       });
       if (data?.days?.[0]?.meals?.[0]) {
         const updated = [...mealDays];
@@ -220,12 +216,33 @@ export default function Nutrition() {
         setMealDays(updated);
         await saveNutritionToDB(user.id, "meals", updated);
         toast.success("Блюдо обновлено!");
-        updateProfile({ mealRegenCount: currentCount + 1, mealRegenResetDate: currentToday });
       }
     } catch (e: any) {
       toast.error(e.message || "Ошибка обновления");
+    } finally {
+      setRegeneratingMealKey(null);
     }
-  }, [mealDays, profile, updateProfile, user]);
+  }, [mealDays, profile, user]);
+
+  const regenerateWeek = useCallback(async () => {
+    if (!user) return;
+
+    setRegeneratingWeek(true);
+    try {
+      toast.info("Обновляем меню на неделю...");
+      const data = await generateContent("meals", profile, { regenerateWeek: true });
+      if (data?.days) {
+        setMealDays(data.days);
+        setSelectedDay(0);
+        await saveNutritionToDB(user.id, "meals", data.days);
+        toast.success("Меню на неделю обновлено!");
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Ошибка обновления недельного меню");
+    } finally {
+      setRegeneratingWeek(false);
+    }
+  }, [profile, user]);
 
   const completeMeal = async (key: string) => {
     if (!user || completedMeals.has(key) || savingMealKey === key) return;
@@ -290,20 +307,26 @@ export default function Nutrition() {
         {activeTab === "meals" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
             {/* Day selector */}
-            <div className="flex gap-1.5 overflow-x-auto pb-1">
-              {mealDays.map((d, i) => (
-                <button key={i} onClick={() => setSelectedDay(i)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
-                    selectedDay === i ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {(d.dayName || dayNames[i] || `День ${i + 1}`).split(/[\s(–—-]/)[0]}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex items-center">
-              <span className="text-xs text-muted-foreground">Замен блюд: {regenRemaining}/{MAX_MEAL_REGEN_PER_DAY}</span>
+            <div className="flex items-center gap-2">
+              <div className="flex gap-1.5 overflow-x-auto pb-1 flex-1">
+                {mealDays.map((d, i) => (
+                  <button key={i} onClick={() => setSelectedDay(i)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                      selectedDay === i ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {(d.dayName || dayNames[i] || `День ${i + 1}`).split(/[\s(–—-]/)[0]}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={regenerateWeek}
+                disabled={regeneratingWeek || loadingMeals || initialLoading}
+                className="shrink-0 inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${regeneratingWeek ? "animate-spin" : ""}`} />
+                Обновить меню на неделю
+              </button>
             </div>
 
             {(loadingMeals || initialLoading) ? (
@@ -334,19 +357,24 @@ export default function Nutrition() {
                         </div>
                         <div className="flex items-center gap-2">
                           <button onClick={() => regenerateMeal(selectedDay, idx)}
-                            disabled={regenRemaining <= 0}
+                            disabled={regeneratingWeek || regeneratingMealKey === key}
                             className="p-1 text-muted-foreground hover:text-primary transition-colors disabled:opacity-30"
-                            title={`Осталось замен: ${regenRemaining}`}
+                            title="Обновить блюдо"
                           >
-                            <RefreshCw className="w-3.5 h-3.5" />
+                            <RefreshCw className={`w-3.5 h-3.5 ${regeneratingMealKey === key ? "animate-spin" : ""}`} />
                           </button>
                           <button onClick={() => completeMeal(key)}
                             disabled={savingMealKey === key || completedMeals.has(key)}
-                            className={`text-xs font-medium px-3 py-1 rounded-full transition-all ${
-                              completedMeals.has(key) ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground hover:bg-primary hover:text-primary-foreground"
+                            className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${
+                              completedMeals.has(key) ? "border-primary bg-primary" : "border-border hover:border-primary/50"
                             }`}
+                            title={completedMeals.has(key) ? "Прием пищи отмечен" : "Отметить прием пищи"}
                           >
-                            {savingMealKey === key ? "..." : completedMeals.has(key) ? "✓" : "Съел"}
+                            {savingMealKey === key ? (
+                              <RefreshCw className="w-4 h-4 text-muted-foreground animate-spin" />
+                            ) : (
+                              completedMeals.has(key) && <Check className="w-4 h-4 text-primary-foreground" />
+                            )}
                           </button>
                         </div>
                       </div>
