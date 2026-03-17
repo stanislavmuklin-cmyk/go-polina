@@ -8,7 +8,32 @@ const corsHeaders = {
 
 const GATEWAY_URL = "https://polza.ai/api/v1/chat/completions";
 
+function calcBMR(gender: string, weight: number, height: number, age: number) {
+  if (gender === "female") return 10 * weight + 6.25 * height - 5 * age - 161;
+  return 10 * weight + 6.25 * height - 5 * age + 5;
+}
+
+function calcTDEE(bmr: number, level: string) {
+  const multipliers: Record<string, number> = {
+    beginner: 1.375,
+    intermediate: 1.55,
+    advanced: 1.725,
+  };
+  return Math.round(bmr * (multipliers[level] || 1.375));
+}
+
+function calcTargetCalories(profile: any) {
+  const bmr = Math.round(calcBMR(profile.gender, profile.weight, profile.height, profile.age));
+  const tdee = calcTDEE(bmr, profile.fitnessLevel);
+
+  if (profile.goal === "fat-loss") return Math.round(tdee * 0.8);
+  if (profile.goal === "muscle") return Math.round(tdee * 1.1);
+  return tdee;
+}
+
 function buildSystemPrompt(profile: any): string {
+  const targetCalories = calcTargetCalories(profile);
+
   return `Ты — AI-консультант по здоровью и wellness, работающий на основе доказательной медицины (РКИ, физиология, клиническая нутрициология).
 
 Профиль пользователя:
@@ -23,6 +48,7 @@ function buildSystemPrompt(profile: any): string {
 - Место тренировки: ${profile.workoutLocation === "home" ? "дома" : "зал"}
 - Отслеживание цикла: ${profile.trackCycle ? "да" : "нет"}
 - Жалобы: ${profile.complaints || "нет"}
+- Целевая норма калорий на день: ${targetCalories} ккал
 
 Все ответы давай на русском языке. Будь конкретным и практичным.`;
 }
@@ -189,7 +215,7 @@ const toolSchemas: Record<string, any> = {
   },
 };
 
-const userPrompts: Record<string, (extra?: any) => string> = {
+const userPrompts: Record<string, (profile?: any, extra?: any) => string> = {
   workouts: () =>
     `Составь персональный недельный план тренировок, строго соблюдая эту структуру недели:
 - Понедельник (Пн): силовая или смешанная тренировка с упражнениями, подходами и повторениями.
@@ -201,7 +227,7 @@ const userPrompts: Record<string, (extra?: any) => string> = {
 - Воскресенье (Вс): полный отдых.
 
 Учитывай мой уровень подготовки, цель и место тренировки. Подбирай упражнения, направленные на достижение цели (если цель — снижение веса, акцент на жиросжигание; если набор массы — на гипертрофию и т.д.).`,
-  meals: (extra) => {
+  meals: (profile, extra) => {
     if (extra?.regenerateSingle && extra?.dayContext && typeof extra?.mealIndex === "number") {
       const dayName = extra.dayContext.dayName || "Неизвестный день";
       const currentMeal = extra.currentMeal || extra.dayContext.meals?.[extra.mealIndex];
@@ -229,15 +255,24 @@ const userPrompts: Record<string, (extra?: any) => string> = {
 - Сделай блюдо реалистичным, бытовым и разнообразным.`;
     }
 
-    return "Составь 7-дневный план питания. Для каждого дня дай 4-5 приёмов пищи с ингредиентами, калориями и макронутриентами (белки, жиры, углеводы). Учитывай мою цель, диету и ограничения. ВАЖНО: каждый элемент в поле items должен содержать не просто название продукта, а точное количество в граммах, миллилитрах или штуках. Пиши в формате вроде: 'Овсяные хлопья — 60 г', 'Яйца — 2 шт', 'Творог 5% — 150 г', 'Оливковое масло — 5 мл'. Не пиши ингредиенты без количества. Делай меню разнообразным по дням и приёмам пищи: не повторяй одни и те же блюда, базовые сочетания и шаблоны без необходимости. Не своди меню к постоянным завтракам из каши, яиц или творога, если на то нет явной причины. ВАЖНО: в поле dayName указывай ТОЛЬКО день недели (Пн, Вт, Ср, Чт, Пт, Сб, Вс) без дополнений вроде 'день тренировки' или 'день отдыха'.";
+    const targetCalories = calcTargetCalories(profile || {});
+
+    return `Составь 7-дневный план питания. Для каждого дня дай 4-5 приёмов пищи с ингредиентами, калориями и макронутриентами (белки, жиры, углеводы). Учитывай мою цель, диету и ограничения.
+
+Целевой ориентир по калориям на день: около ${targetCalories} ккал.
+Старайся, чтобы суммарная калорийность каждого дня была близка к этой норме, с разумным бытовым отклонением, а не случайной.
+
+ВАЖНО: каждый элемент в поле items должен содержать не просто название продукта, а точное количество в граммах, миллилитрах или штуках. Пиши в формате вроде: 'Овсяные хлопья — 60 г', 'Яйца — 2 шт', 'Творог 5% — 150 г', 'Оливковое масло — 5 мл'. Не пиши ингредиенты без количества.
+Делай меню разнообразным по дням и приёмам пищи: не повторяй одни и те же блюда, базовые сочетания и шаблоны без необходимости. Не своди меню к постоянным завтракам из каши, яиц или творога, если на то нет явной причины.
+ВАЖНО: в поле dayName указывай ТОЛЬКО день недели (Пн, Вт, Ср, Чт, Пт, Сб, Вс) без дополнений вроде 'день тренировки' или 'день отдыха'.`;
   },
   supplements: () =>
     "Рекомендуй добавки (витамины, минералы, нутрицевтики) на основе моей цели, жалоб и типа диеты. Для каждой добавки укажи дозировку, время приёма, длительность курса и обоснование.",
-  shopping: (extra) =>
+  shopping: (_profile, extra) =>
     `Составь список покупок по категориям (белки, овощи, крупы, молочные, фрукты, другое) на основе этого плана питания:\n${JSON.stringify(extra?.mealPlan || "стандартный план")}`,
-  sos: (extra) =>
+  sos: (_profile, extra) =>
     `Дай персонализированный протокол для ситуации: "${extra?.topic || "общее недомогание"}". Учитывай мой профиль, цель и ограничения. Дай конкретные шаги и рекомендации по добавкам если уместно.`,
-  report: (extra) =>
+  report: (_profile, extra) =>
     `Проанализируй мой отчёт за сегодня и дай краткую персональную рекомендацию.
 
 Данные отчёта:
@@ -271,7 +306,7 @@ serve(async (req) => {
     }
 
     const systemPrompt = buildSystemPrompt(profile || {});
-    const userPrompt = userPrompts[type](extra);
+    const userPrompt = userPrompts[type](profile, extra);
     const tool = toolSchemas[type];
 
     const response = await fetch(GATEWAY_URL, {
